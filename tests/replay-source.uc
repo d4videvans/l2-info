@@ -52,10 +52,16 @@ const NL = {
 };
 
 // Fixture input keys, so a fixture is readable as a description of a device
-// rather than as a sequence of syscalls.
+// rather than as a sequence of syscalls. D46 makes the two GETLINK views
+// separate inputs: generic links establish device kind, AF_BRIDGE establishes
+// membership and VLAN state.
 function request_key(cmd, payload) {
-	if (cmd == NL.RTM_GETLINK)
-		return 'link_bridge';
+	if (cmd == NL.RTM_GETLINK) {
+		if (payload.family == NL.AF_BRIDGE)
+			return 'link_bridge';
+
+		return 'link_generic';
+	}
 
 	if (cmd == NL.RTM_GETNEIGH) {
 		if (payload.family == NL.AF_BRIDGE) return 'neigh_bridge';
