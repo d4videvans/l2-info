@@ -1,0 +1,46 @@
+{
+  "scope": {
+    "fdb": {
+      "status": "ok"
+    },
+    "ports": {
+      "status": "ok"
+    },
+    "readers": {
+      "rtnl": {
+        "status": "ok"
+      },
+      "zz-broken": {
+        "status": "unavailable",
+        "reason": "read() threw: connect: No such file or directory"
+      }
+    }
+  },
+  "counts": {
+    "bridges": 1,
+    "ports": 1,
+    "fdb": 1
+  },
+  "conflicts": 0,
+  "entities": [
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:bb:cc:00:00:01"
+      },
+      "source": "rtnl",
+      "derived": {
+        "vlan": 1,
+        "vlan_source": "fdb"
+      }
+    }
+  ],
+  "hints": {
+    "fire": [],
+    "silent": [
+      "conflict",
+      "no_vlan_filtering",
+      "fdb_indeterminate"
+    ]
+  }
+}

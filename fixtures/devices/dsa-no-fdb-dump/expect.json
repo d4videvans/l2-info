@@ -1,0 +1,46 @@
+{
+  "scope": {
+    "fdb": {
+      "status": "indeterminate"
+    },
+    "ports": {
+      "status": "ok"
+    },
+    "bridges": {
+      "status": "ok"
+    },
+    "names": {
+      "status": "unavailable"
+    }
+  },
+  "counts": {
+    "fdb": 0,
+    "ports": 2,
+    "bridges": 1
+  },
+  "conflicts": 0,
+  "entities": [
+    {
+      "collection": "ports",
+      "subject": {
+        "port": "lan1"
+      },
+      "derived": {
+        "mac_count": 0,
+        "vlans_observed": []
+      }
+    }
+  ],
+  "hints": {
+    "fire": [
+      "fdb_indeterminate",
+      "names_unavailable"
+    ],
+    "silent": [
+      "no_vlan_filtering",
+      "pvid_inferred",
+      "port_multiple_macs",
+      "conflict"
+    ]
+  }
+}

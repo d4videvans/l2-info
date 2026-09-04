@@ -1,0 +1,35 @@
+{
+  "api": 1,
+  "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": ["bridges", "ports", "fdb", "neighbours", "names"],
+  "collections": {
+    "bridges": { "status": "ok" }, "ports": { "status": "ok" }, "fdb": { "status": "ok" },
+    "neighbours": { "status": "ok" },
+    "names": { "status": "unavailable", "reason": "no lease file and no /etc/ethers on this device" }
+  },
+  "rows": [
+    { "subject": { "bridge": "br-lan" }, "attrs": { "br.name": "br-lan", "br.vlan_filtering": true } },
+
+    { "subject": { "port": "lan1" }, "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan",
+      "topo.carrier": true, "topo.vlans": [20], "topo.vlan_flags": ["PVID Egress Untagged"],
+      "topo.vlan_pvid": 20, "topo.vlan_untagged": [20] } },
+    { "subject": { "port": "lan2" }, "attrs": { "topo.port": "lan2", "topo.bridge": "br-lan",
+      "topo.carrier": true, "topo.vlans": [20], "topo.vlan_flags": ["PVID Egress Untagged"],
+      "topo.vlan_pvid": 20, "topo.vlan_untagged": [20] } },
+    { "subject": { "port": "eth0" }, "attrs": { "topo.port": "eth0", "topo.carrier": true } },
+    { "subject": { "port": "switch" }, "attrs": { "topo.port": "switch", "topo.carrier": true } },
+    { "subject": { "port": "switch.20" }, "attrs": { "topo.port": "switch.20", "topo.carrier": true } },
+
+    { "subject": { "mac": "33:33:00:00:00:01" }, "attrs": { "fdb.port": "eth0", "fdb.flags": ["self","permanent"] } },
+    { "subject": { "mac": "33:33:00:00:00:01" }, "attrs": { "fdb.port": "switch", "fdb.flags": ["self","permanent"] } },
+    { "subject": { "mac": "33:33:00:00:00:01" }, "attrs": { "fdb.port": "switch.20", "fdb.flags": ["self","permanent"] } },
+
+    { "subject": { "mac": "aa:bb:cc:11:22:33" }, "attrs": { "fdb.port": "lan1", "fdb.vlan": 20, "fdb.flags": ["self"] } },
+    { "subject": { "mac": "aa:bb:cc:11:22:33" }, "attrs": { "fdb.port": "lan2", "fdb.vlan": 20, "fdb.flags": ["self"] } },
+
+    { "subject": { "mac": "de:ad:be:ef:00:11" }, "attrs": { "fdb.port": "lan2", "fdb.vlan": 20, "fdb.flags": ["self"] } },
+    { "subject": { "mac": "de:ad:be:ef:00:11" }, "attrs": { "fdb.port": "lan2", "fdb.vlan": 20,
+      "fdb.bridge": "br-lan", "fdb.flags": ["master"] } }
+  ]
+}

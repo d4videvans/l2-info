@@ -1,0 +1,26 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges":    { "status": "ok" },
+    "ports":      { "status": "ok" },
+    "fdb":        { "status": "ok" },
+    "neighbours": { "status": "ok" },
+    "names":      { "status": "ok" }
+  },
+  "row_counts": { "bridges": 1, "ports": 3, "fdb": 4, "neighbours": 1, "names": 0 },
+  "rows": [
+    { "subject": { "bridge": "switch" },
+      "attrs": { "br.name": "switch", "br.vlan_filtering": true } },
+
+    { "subject": { "port": "switch" }, "absent_row": true },
+
+    { "subject": { "port": "lan24" }, "collection": "ports",
+      "attrs": { "topo.bridge": "switch", "topo.vlans": [1, 5, 12, 20] },
+      "absent": [ "topo.vlan_pvid" ] },
+
+    { "subject": { "mac": "aa:bd:1d:c9:3a:7a" }, "collection": "neighbours",
+      "attrs": { "neigh.ips": ["10.0.20.1"] } },
+
+    { "subject": { "mac": "00:00:00:00:00:00" }, "absent_row": true }
+  ]
+}

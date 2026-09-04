@@ -1,0 +1,20 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges": { "status": "ok" },
+    "ports":   { "status": "ok" },
+    "fdb":     { "status": "ok" },
+    "names":   { "status": "unavailable" }
+  },
+  "row_counts": { "bridges": 1, "ports": 2, "fdb": 2 },
+  "rows": [
+    { "subject": { "bridge": "br-lan" },
+      "attrs": { "br.vlan_filtering": false } },
+    { "subject": { "port": "lan1" },
+      "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan" },
+      "absent": [ "topo.vlans", "topo.vlan_pvid", "topo.vlan_untagged" ] },
+    { "subject": { "mac": "aa:bb:cc:00:00:01" }, "collection": "fdb",
+      "attrs": { "fdb.port": "lan1", "fdb.bridge": "br-lan", "fdb.flags": ["master"] },
+      "absent": [ "fdb.vlan" ] }
+  ]
+}

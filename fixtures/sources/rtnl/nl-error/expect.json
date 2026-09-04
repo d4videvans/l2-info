@@ -1,0 +1,8 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "ports": { "status": "ok" },
+    "fdb":   { "status": "unavailable", "reason": "Operation not supported" }
+  },
+  "row_counts": { "ports": 1 }
+}

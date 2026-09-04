@@ -1,0 +1,73 @@
+{
+  "scope": {
+    "bridges": {
+      "status": "ok"
+    },
+    "fdb": {
+      "status": "ok"
+    }
+  },
+  "counts": {
+    "bridges": 1,
+    "ports": 2,
+    "fdb": 3,
+    "neighbours": 1
+  },
+  "conflicts": 0,
+  "entities": [
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:bb:cc:00:00:02"
+      },
+      "attrs_absent": [
+        "fdb.vlan"
+      ],
+      "derived": {
+        "vlan": 20,
+        "vlan_source": "pvid",
+        "bridge": "br-lan"
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:bb:cc:00:00:01"
+      },
+      "derived": {
+        "vlan": 10,
+        "vlan_source": "fdb",
+        "ips": [
+          "10.0.10.5",
+          "fd00::5"
+        ]
+      }
+    },
+    {
+      "collection": "ports",
+      "subject": {
+        "port": "lan1"
+      },
+      "derived": {
+        "mac_count": 2,
+        "vlans_observed": [
+          10,
+          20
+        ]
+      }
+    }
+  ],
+  "hints": {
+    "port": "lan1",
+    "fire": [
+      "pvid_inferred",
+      "port_multiple_macs"
+    ],
+    "silent": [
+      "no_vlan_filtering",
+      "fdb_indeterminate",
+      "conflict",
+      "names_unavailable"
+    ]
+  }
+}

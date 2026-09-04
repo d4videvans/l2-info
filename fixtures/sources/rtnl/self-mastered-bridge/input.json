@@ -1,0 +1,37 @@
+{
+  "link_bridge": {
+    "rows": [
+      { "ifname": "switch", "master": "switch", "address": "02:8b:f3:fc:bb:75",
+        "af_spec": { "bridge": { "bridge_vlan_info": [
+          { "vid": 1, "flags": 0 }, { "vid": 5, "flags": 0 }, { "vid": 12, "flags": 0 },
+          { "vid": 20, "flags": 0 } ] } } },
+      { "ifname": "lan1", "master": "switch", "address": "02:8b:f3:fc:bb:75",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 5, "flags": 6 } ] } } },
+      { "ifname": "lan2", "master": "switch", "address": "02:8b:f3:fc:bb:75",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 5, "flags": 6 } ] } } },
+      { "ifname": "lan24", "master": "switch", "address": "02:8b:f3:fc:bb:75",
+        "af_spec": { "bridge": { "bridge_vlan_info": [
+          { "vid": 1, "flags": 0 }, { "vid": 5, "flags": 0 }, { "vid": 12, "flags": 0 },
+          { "vid": 20, "flags": 0 } ] } } }
+    ]
+  },
+  "neigh_bridge": {
+    "rows": [
+      { "dev": "lan2", "lladdr": "aa:5d:64:54:e0:15", "vlan": 5, "state": 2, "flags": 2, "master": "switch" },
+      { "dev": "switch", "lladdr": "02:8b:f3:fc:bb:75", "vlan": 1, "state": 128, "flags": 0, "master": "switch" },
+      { "dev": "switch", "lladdr": "02:8b:f3:fc:bb:75", "vlan": 5, "state": 128, "flags": 0, "master": "switch" },
+      { "dev": "lan1", "lladdr": "02:8b:f3:fc:bb:75", "vlan": 5, "state": 128, "flags": 0, "master": "switch" }
+    ]
+  },
+  "neigh_inet": {
+    "rows": [
+      { "lladdr": "aa:bd:1d:c9:3a:7a", "dst": "10.0.20.1", "state": 2 },
+      { "lladdr": "00:00:00:00:00:00", "dst": "0.0.0.0", "state": 1 }
+    ]
+  },
+  "neigh_inet6": { "rows": [] },
+  "files": {
+    "/sys/class/net/switch/bridge/vlan_filtering": "1\n",
+    "/etc/ethers": "\n"
+  }
+}

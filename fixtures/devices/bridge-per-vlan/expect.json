@@ -1,0 +1,50 @@
+{
+  "counts": {
+    "bridges": 2,
+    "ports": 3,
+    "fdb": 2
+  },
+  "conflicts": 0,
+  "entities": [
+    {
+      "collection": "bridges",
+      "subject": {
+        "bridge": "br-lan"
+      },
+      "derived": {
+        "port_count": 2
+      }
+    },
+    {
+      "collection": "bridges",
+      "subject": {
+        "bridge": "br-guest"
+      },
+      "derived": {
+        "port_count": 1
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:bb:cc:00:00:09"
+      },
+      "derived": {
+        "vlan": null,
+        "vlan_source": null,
+        "bridge": "br-guest"
+      }
+    }
+  ],
+  "hints": {
+    "fire": [
+      "no_vlan_filtering",
+      "names_unavailable"
+    ],
+    "silent": [
+      "pvid_inferred",
+      "port_multiple_macs",
+      "conflict"
+    ]
+  }
+}

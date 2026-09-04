@@ -1,0 +1,33 @@
+{
+  "scope": {
+    "fdb": { "status": "ok" },
+    "readers": { "rtnl": { "status": "ok" } }
+  },
+  "counts": { "bridges": 1, "ports": 5, "fdb": 6 },
+  "conflicts": 0,
+  "entities": [
+    { "collection": "fdb", "subject": { "mac": "33:33:00:00:00:01" },
+      "where": { "fdb.port": "eth0" },
+      "derived": { "mac_class": "protocol", "vlan": null, "vlan_source": null } },
+    { "collection": "fdb", "subject": { "mac": "33:33:00:00:00:01" },
+      "where": { "fdb.port": "switch.20" },
+      "derived": { "mac_class": "protocol" } },
+
+    { "collection": "fdb", "subject": { "mac": "aa:bb:cc:11:22:33" },
+      "where": { "fdb.port": "lan1" }, "derived": { "vlan": 20, "bridge": "br-lan" } },
+    { "collection": "fdb", "subject": { "mac": "aa:bb:cc:11:22:33" },
+      "where": { "fdb.port": "lan2" }, "derived": { "vlan": 20, "bridge": "br-lan" } },
+
+    { "collection": "fdb", "subject": { "mac": "de:ad:be:ef:00:11" },
+      "attrs": { "fdb.port": "lan2", "fdb.vlan": 20, "fdb.bridge": "br-lan",
+                 "fdb.flags": ["self", "master"] },
+      "derived": { "vlan": 20, "vlan_source": "fdb", "bridge": "br-lan" } },
+
+    { "collection": "ports", "subject": { "port": "lan2" },
+      "derived": { "mac_count": 2, "vlans_observed": [20] } }
+  ],
+  "hints": {
+    "fire": ["mac_on_several_ports", "names_unavailable"],
+    "silent": ["conflict", "no_vlan_filtering", "fdb_indeterminate", "pvid_inferred"]
+  }
+}

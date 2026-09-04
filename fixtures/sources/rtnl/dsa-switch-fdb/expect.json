@@ -1,0 +1,58 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges":    { "status": "ok" },
+    "ports":      { "status": "ok" },
+    "fdb":        { "status": "ok" },
+    "neighbours": { "status": "ok" },
+    "names":      { "status": "ok" }
+  },
+  "row_counts": { "bridges": 1, "ports": 4, "fdb": 10, "neighbours": 1, "names": 1 },
+  "rows": [
+    { "subject": { "bridge": "br-lan" },
+      "attrs": { "br.name": "br-lan", "br.vlan_filtering": true } },
+
+    { "subject": { "port": "lan1" },
+      "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan", "topo.carrier": true,
+                 "topo.vlans": [1, 20, 21, 22, 30, 40, 50],
+                 "topo.vlan_flags": ["", "", "", "", "", "", ""] },
+      "absent": [ "topo.vlan_pvid", "topo.vlan_untagged" ] },
+
+    { "subject": { "port": "lan2" },
+      "attrs": { "topo.vlans": [20, 30],
+                 "topo.vlan_flags": ["PVID Egress Untagged", ""],
+                 "topo.vlan_pvid": 20, "topo.vlan_untagged": [20] } },
+
+    { "subject": { "port": "lan3" }, "attrs": { "topo.carrier": false } },
+
+    { "subject": { "port": "switch" },
+      "attrs": { "topo.port": "switch", "topo.carrier": true },
+      "absent": [ "topo.bridge", "topo.vlans" ] },
+
+    { "subject": { "mac": "aa:bb:cc:11:22:33" }, "collection": "fdb",
+      "where": { "fdb.flags": ["self"] },
+      "attrs": { "fdb.port": "lan1", "fdb.vlan": 1 },
+      "absent": [ "fdb.bridge" ] },
+
+    { "subject": { "mac": "aa:bb:cc:11:22:33" }, "collection": "fdb",
+      "where": { "fdb.flags": ["master"] },
+      "attrs": { "fdb.port": "lan1", "fdb.vlan": 1, "fdb.bridge": "br-lan" } },
+
+    { "subject": { "mac": "de:ad:be:ef:00:22" }, "collection": "fdb",
+      "attrs": { "fdb.port": "lan2", "fdb.vlan": 30, "fdb.flags": ["self", "static"] } },
+
+    { "subject": { "mac": "aa:bb:cc:44:55:66" }, "collection": "fdb",
+      "attrs": { "fdb.port": "lan2", "fdb.flags": ["self"] },
+      "absent": [ "fdb.vlan" ] },
+
+    { "subject": { "mac": "33:33:00:00:00:01" }, "collection": "fdb",
+      "attrs": { "fdb.port": "switch", "fdb.flags": ["self", "permanent"] },
+      "absent": [ "fdb.vlan", "fdb.bridge" ] },
+
+    { "subject": { "mac": "de:ad:be:ef:00:11" }, "collection": "neighbours",
+      "attrs": { "neigh.ips": ["10.0.20.50"] } },
+
+    { "subject": { "mac": "de:ad:be:ef:00:11" }, "collection": "names",
+      "attrs": { "name.hostname": "nas" } }
+  ]
+}

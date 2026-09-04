@@ -1,0 +1,13 @@
+{
+  "loaded": [ "good" ],
+  "report": {
+    "good":           { "status": "ok", "api": 1, "cost": "software", "provides": ["ports"] },
+    "future-api":     { "status": "skipped", "reason": "manifest api 2 is not supported (this core supports 1)" },
+    "wrong-id":       { "status": "skipped", "reason": "manifest id 'something-else' does not match filename 'wrong-id'" },
+    "bad-collection": { "status": "skipped", "reason": "manifest provides unregistered collection 'wireless'" },
+    "bad-cost":       { "status": "skipped", "reason": "manifest cost 'cheap' is not software or hardware-walk" },
+    "no-read":        { "status": "skipped", "reason": "manifest read is missing or not a function" },
+    "not-object":     { "status": "skipped", "reason": "module did not return an object" }
+  },
+  "skipped_with_reason": [ "broken-syntax" ]
+}

@@ -1,0 +1,12 @@
+{
+  "link_bridge": {
+    "rows": [
+      { "ifname": "br-lan", "address": "02:aa:bb:cc:dd:00", "carrier": true },
+      { "ifname": "lan1", "master": "br-lan", "carrier": true }
+    ]
+  },
+  "neigh_bridge": { "error": "Operation not supported" },
+  "neigh_inet": { "rows": [] },
+  "neigh_inet6": { "rows": [] },
+  "files": { "/sys/class/net/br-lan/bridge/vlan_filtering": "1\n" }
+}

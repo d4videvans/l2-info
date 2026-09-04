@@ -1,0 +1,10 @@
+{
+	"luci-app-l2-info": {
+		"description": "Read layer 2 addresses, ports and VLANs on this device",
+		"read": {
+			"ubus": {
+				"l2-info": [ "snapshot" ]
+			}
+		}
+	}
+}

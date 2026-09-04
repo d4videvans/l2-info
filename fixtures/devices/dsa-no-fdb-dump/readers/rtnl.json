@@ -1,0 +1,22 @@
+{
+  "api": 1, "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": ["bridges", "ports", "fdb", "neighbours", "names"],
+  "collections": {
+    "bridges": { "status": "ok" },
+    "ports":   { "status": "ok" },
+    "fdb":     { "status": "indeterminate",
+                 "reason": "dump succeeded with no entries; an idle bridge and a driver that does not report its table are indistinguishable from one sample" },
+    "neighbours": { "status": "ok" },
+    "names":   { "status": "unavailable", "reason": "no lease file and no /etc/ethers on this device" }
+  },
+  "rows": [
+    { "subject": { "bridge": "br-lan" }, "attrs": { "br.name": "br-lan", "br.vlan_filtering": true } },
+    { "subject": { "port": "lan1" }, "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan",
+      "topo.carrier": true, "topo.vlans": [1, 20], "topo.vlan_flags": ["PVID Egress Untagged", ""],
+      "topo.vlan_pvid": 1, "topo.vlan_untagged": [1] } },
+    { "subject": { "port": "lan2" }, "attrs": { "topo.port": "lan2", "topo.bridge": "br-lan",
+      "topo.carrier": false, "topo.vlans": [1], "topo.vlan_flags": ["PVID Egress Untagged"],
+      "topo.vlan_pvid": 1, "topo.vlan_untagged": [1] } }
+  ]
+}

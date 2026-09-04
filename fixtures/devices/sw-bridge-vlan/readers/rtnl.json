@@ -1,0 +1,25 @@
+{
+  "api": 1, "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": ["bridges", "ports", "fdb", "neighbours", "names"],
+  "collections": {
+    "bridges": { "status": "ok" }, "ports": { "status": "ok" }, "fdb": { "status": "ok" },
+    "neighbours": { "status": "ok" }, "names": { "status": "ok" }
+  },
+  "rows": [
+    { "subject": { "bridge": "br-lan" }, "attrs": { "br.name": "br-lan", "br.vlan_filtering": true } },
+    { "subject": { "port": "lan1" }, "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan",
+      "topo.carrier": true, "topo.vlans": [10, 20], "topo.vlan_flags": ["PVID Egress Untagged", ""],
+      "topo.vlan_pvid": 10, "topo.vlan_untagged": [10] } },
+    { "subject": { "port": "wlan0" }, "attrs": { "topo.port": "wlan0", "topo.bridge": "br-lan",
+      "topo.carrier": true, "topo.vlans": [20], "topo.vlan_flags": ["PVID Egress Untagged"],
+      "topo.vlan_pvid": 20, "topo.vlan_untagged": [20] } },
+    { "subject": { "mac": "aa:bb:cc:00:00:01" }, "attrs": { "fdb.port": "lan1", "fdb.vlan": 10,
+      "fdb.bridge": "br-lan", "fdb.flags": ["master"] } },
+    { "subject": { "mac": "aa:bb:cc:00:00:02" }, "attrs": { "fdb.port": "wlan0",
+      "fdb.bridge": "br-lan", "fdb.flags": ["master"] } },
+    { "subject": { "mac": "aa:bb:cc:00:00:03" }, "attrs": { "fdb.port": "lan1", "fdb.vlan": 20,
+      "fdb.bridge": "br-lan", "fdb.flags": ["master"] } },
+    { "subject": { "mac": "aa:bb:cc:00:00:01" }, "attrs": { "neigh.ips": ["10.0.10.5", "fd00::5"] } }
+  ]
+}

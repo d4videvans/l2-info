@@ -1,0 +1,148 @@
+{
+  "scope": {
+    "fdb": {
+      "status": "ok",
+      "count": 8,
+      "entries_switch_reported": 2,
+      "entries_bridge_reported": 6
+    },
+    "ports": {
+      "status": "ok",
+      "count": 3
+    },
+    "names": {
+      "status": "ok",
+      "count": 0,
+      "note": "rtnl: read /etc/ethers; no address to name mappings in them"
+    }
+  },
+  "counts": {
+    "bridges": 1,
+    "ports": 3,
+    "fdb": 8
+  },
+  "conflicts": 0,
+  "entities": [
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:5d:64:54:e0:15"
+      },
+      "where": {
+        "fdb.vlan": 5
+      },
+      "attrs": {
+        "fdb.flags": [
+          "master"
+        ],
+        "fdb.bridge": "switch"
+      },
+      "derived": {
+        "vlan": 5,
+        "vlan_source": "fdb",
+        "bridge": "switch"
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:5d:64:54:e0:15"
+      },
+      "where": {
+        "fdb.flags": [
+          "self"
+        ]
+      },
+      "attrs_absent": [
+        "fdb.vlan",
+        "fdb.bridge"
+      ],
+      "derived": {
+        "vlan": 5,
+        "vlan_source": "pvid",
+        "bridge": "switch"
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "de:7d:22:01:18:9b"
+      },
+      "where": {
+        "fdb.flags": [
+          "self"
+        ]
+      },
+      "derived": {
+        "vlan": null,
+        "vlan_source": null,
+        "bridge": "switch"
+      }
+    },
+    {
+      "collection": "ports",
+      "subject": {
+        "port": "lan2"
+      },
+      "derived": {
+        "mac_count": 1,
+        "vlans_observed": [
+          5
+        ]
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "02:8b:f3:fc:bb:75"
+      },
+      "where": {
+        "fdb.port": "lan1"
+      },
+      "derived": {
+        "local": true,
+        "mac_class": "unicast",
+        "bridge": "switch",
+        "vlan": 5,
+        "vlan_source": "pvid"
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "02:8b:f3:fc:bb:75"
+      },
+      "where": {
+        "fdb.vlan": 12
+      },
+      "derived": {
+        "local": true
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:5d:64:54:e0:15"
+      },
+      "where": {
+        "fdb.vlan": 5
+      },
+      "derived": {
+        "local": false
+      }
+    }
+  ],
+  "hints": {
+    "port": "lan2",
+    "fire": [
+      "pvid_inferred",
+      "duplicate_reports"
+    ],
+    "silent": [
+      "conflict",
+      "fdb_indeterminate",
+      "mac_on_several_ports",
+      "no_vlan_filtering"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "ports": { "status": "ok" },
+    "fdb":   { "status": "indeterminate" }
+  },
+  "row_counts": { "ports": 1 }
+}

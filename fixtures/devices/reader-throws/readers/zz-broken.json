@@ -1,0 +1,6 @@
+{
+  "api": 1, "cost": "software",
+  "describe": "A reader that raises on every call",
+  "provides": ["ports"],
+  "throws": "connect: No such file or directory"
+}

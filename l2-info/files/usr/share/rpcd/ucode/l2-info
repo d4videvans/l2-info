@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: Apache-2.0
+//
+// l2-info - ubus surface.
+//
+//   ubus call l2-info snapshot
+//
+// Deliberately thin. Everything of substance is in the assembler library,
+// which the fixture harnesses load directly; keeping the ubus binding
+// separate is what lets the tests exercise the real assembler rather than a
+// copy of it.
+//
+// One method, no arguments: every question this tool answers is a question
+// about one snapshot, and a filtered read would both put view policy in the
+// backend and allow two queries to return mutually inconsistent data
+// (docs/decisions.md D2, D6).
+
+'use strict';
+
+const LIB = '/usr/share/l2-info/assemble.uc';
+
+let lib = loadfile(LIB)();
+
+return {
+	'l2-info': {
+		snapshot: {
+			call: () => lib.snapshot()
+		}
+	}
+};

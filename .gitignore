@@ -1,0 +1,15 @@
+# Build output from an OpenWrt buildroot, if this tree is used in place
+/l2-info/ipkg-*/
+/luci-app-l2-info/ipkg-*/
+*.ipk
+*.apk
+
+# Exported snapshots: these contain real MAC addresses from real networks and
+# must never be committed. A capture destined for a fixture goes through the
+# redaction in docs/fixtures.md first.
+l2-info-*.json
+
+# Editor and OS noise
+*.swp
+*~
+.DS_Store

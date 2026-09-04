@@ -1,0 +1,35 @@
+{
+  "link_bridge": {
+    "rows": [
+      { "ifname": "br-lan", "address": "02:11:22:33:44:55", "carrier": true,
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 1, "flags": 6 } ] } } },
+      { "ifname": "lan1", "master": "br-lan", "carrier": true, "address": "02:11:22:33:44:01",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 1, "flags": 0 }, { "vid": 20, "vid_end": 22, "flags": 0 }, { "vid": 30, "flags": 0 }, { "vid": 40, "flags": 0 }, { "vid": 50, "flags": 0 } ] } } },
+      { "ifname": "lan2", "master": "br-lan", "carrier": true, "address": "02:11:22:33:44:02",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 20, "flags": 6 }, { "vid": 30, "flags": 0 } ] } } },
+      { "ifname": "lan3", "master": "br-lan", "carrier": false, "address": "02:11:22:33:44:03",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 20, "flags": 6 } ] } } },
+      { "ifname": "switch", "carrier": true, "address": "02:11:22:33:44:ff" }
+    ]
+  },
+  "neigh_bridge": {
+    "rows": [
+      { "dev": "lan1", "lladdr": "aa:bb:cc:11:22:33", "vlan": 1,  "state": 2,   "flags": 2 },
+      { "dev": "lan1", "lladdr": "aa:bb:cc:11:22:33", "vlan": 1,  "state": 2,   "flags": 4, "master": "br-lan" },
+      { "dev": "lan2", "lladdr": "de:ad:be:ef:00:11", "vlan": 20, "state": 2,   "flags": 2 },
+      { "dev": "lan2", "lladdr": "de:ad:be:ef:00:22", "vlan": 30, "state": 64,  "flags": 2 },
+      { "dev": "lan2", "lladdr": "aa:bb:cc:44:55:66", "state": 2,   "flags": 2 },
+      { "dev": "lan3", "lladdr": "aa:bb:cc:99:88:77", "vlan": 20, "state": 2,   "flags": 2 },
+      { "dev": "switch", "lladdr": "33:33:00:00:00:01", "state": 128, "flags": 2 },
+      { "dev": "switch", "lladdr": "01:00:5e:00:00:fb", "state": 128, "flags": 2 },
+      { "dev": "switch", "lladdr": "01:e0:52:cc:cc:cc", "state": 128, "flags": 2 },
+      { "dev": "br-lan", "lladdr": "02:11:22:33:44:55", "vlan": 1, "state": 128, "flags": 2 }
+    ]
+  },
+  "neigh_inet": { "rows": [ { "lladdr": "de:ad:be:ef:00:11", "dst": "10.0.20.50" } ] },
+  "neigh_inet6": { "rows": [] },
+  "files": {
+    "/sys/class/net/br-lan/bridge/vlan_filtering": "1\n",
+    "/tmp/dhcp.leases": "1788400000 de:ad:be:ef:00:11 10.0.20.50 nas *\n1788400001 aa:bb:cc:44:55:66 10.0.20.51 * *\n"
+  }
+}

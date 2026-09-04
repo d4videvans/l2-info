@@ -1,0 +1,175 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+#
+# Runs every fixture of both kinds, then the mechanical checks that enforce
+# the principles. Fixtures are discovered, never listed: adding a device class
+# or a reader means adding a directory (docs/decisions.md D14, D26).
+#
+#   tests/run.sh                          everything
+#   tests/run.sh devices/sw-bridge-novlan one device fixture
+#   tests/run.sh sources/rtnl             every case for one reader
+#   tests/run.sh checks                   the mechanical checks only
+
+set -u
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+UCODE=${UCODE:-ucode}
+FILTER=${1:-}
+
+# A locally built ucode needs its module directory naming; the ucode shipped on
+# a device finds fs and rtnl on the default search path, so UCODE_LIB is a
+# development convenience only.
+UCARGS="-R"
+[ -n "${UCODE_LIB:-}" ] && UCARGS="$UCARGS -L $UCODE_LIB"
+
+fail=0
+ran=0
+
+if ! command -v "$UCODE" >/dev/null 2>&1; then
+	echo "ucode not found; set UCODE=/path/to/ucode" >&2
+	exit 2
+fi
+
+run_source() {
+	dir=$1
+	ran=$((ran + 1))
+	# shellcheck disable=SC2086
+	"$UCODE" $UCARGS "$ROOT/tests/replay-source.uc" "$dir" "$ROOT" || fail=1
+}
+
+run_device() {
+	dir=$1
+	ran=$((ran + 1))
+	# shellcheck disable=SC2086
+	"$UCODE" $UCARGS "$ROOT/tests/replay-device.uc" "$dir" "$ROOT" || fail=1
+}
+
+run_discovery() {
+	dir=$1
+	ran=$((ran + 1))
+	# shellcheck disable=SC2086
+	"$UCODE" $UCARGS "$ROOT/tests/replay-discovery.uc" "$dir" "$ROOT" || fail=1
+}
+
+matches() {
+	[ -z "$FILTER" ] && return 0
+	case "$1" in
+		*"$FILTER"*) return 0 ;;
+		*) return 1 ;;
+	esac
+}
+
+if [ "$FILTER" != "checks" ]; then
+	echo "source fixtures"
+	for d in "$ROOT"/fixtures/sources/*/*/; do
+		[ -f "$d/input.json" ] || continue
+		rel=${d#"$ROOT"/fixtures/}
+		matches "${rel%/}" && run_source "${d%/}"
+	done
+
+	echo "discovery fixtures"
+	for d in "$ROOT"/fixtures/discovery/*/; do
+		[ -d "$d/readers" ] || continue
+		rel=${d#"$ROOT"/fixtures/}
+		matches "${rel%/}" && run_discovery "${d%/}"
+	done
+
+	echo "device fixtures"
+	for d in "$ROOT"/fixtures/devices/*/; do
+		[ -f "$d/expect.json" ] || continue
+		rel=${d#"$ROOT"/fixtures/}
+		matches "${rel%/}" && run_device "${d%/}"
+	done
+fi
+
+# ---------------------------------------------------------------------------
+# Mechanical checks. Each one exists because a principle does not hold on
+# prose alone; CONVENTIONS.md maps them to the principles they enforce.
+# ---------------------------------------------------------------------------
+
+if [ -z "$FILTER" ] || [ "$FILTER" = "checks" ]; then
+	echo "mechanical checks"
+
+	check() {
+		ran=$((ran + 1))
+		if [ "$2" -eq 0 ]; then
+			echo "  ok   $1"
+		else
+			echo "  FAIL $1"
+			fail=1
+		fi
+	}
+
+	BACKEND="$ROOT/l2-info/files"
+	VIEW="$ROOT/luci-app-l2-info"
+	SRC="$BACKEND $VIEW"
+
+	# P2, D7: no role vocabulary anywhere in shipped code.
+	hits=$(grep -rnE '\b(at_or_beyond|"beyond"|'"'"'beyond'"'"'|"uplink"|'"'"'uplink'"'"')' $SRC 2>/dev/null | wc -l)
+	check "P2: no classification vocabulary in code" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	# D28: rtnl has no special case; the abstraction is real or deleted.
+	hits=$(grep -rn "rtnl" "$BACKEND/usr/share/rpcd" "$BACKEND/usr/share/l2-info/assemble.uc" 2>/dev/null \
+		| grep -v "require('rtnl')" | grep -v "ucode-mod-rtnl" | wc -l)
+	check "D28: no reader-id literal in the core" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	# P6: nothing polls.
+	hits=$(grep -rn "poll\.add\|require *'poll'\|require poll" "$VIEW" 2>/dev/null | wc -l)
+	check "P6: view does not poll" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	# P7: read-only, no persistence.
+	hits=$(grep -rn "localStorage\|sessionStorage" "$VIEW" 2>/dev/null | wc -l)
+	check "P7: no browser persistence" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	hits=$(grep -rn '"write"' "$VIEW/root/usr/share/rpcd/acl.d" 2>/dev/null | wc -l)
+	check "P7: ACL grants no write" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	hits=$(find "$BACKEND" "$VIEW" -path '*etc/config*' 2>/dev/null | wc -l)
+	check "P7: no uci schema shipped" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	# P8, D24: every reader has at least one source fixture.
+	missing=0
+	for r in "$BACKEND"/usr/share/l2-info/readers/*.uc; do
+		[ -f "$r" ] || continue
+		id=$(basename "$r" .uc)
+		[ -d "$ROOT/fixtures/sources/$id" ] || missing=1
+	done
+	check "P8: every reader has source fixtures" "$missing"
+
+	# D15: no identifier outside the synthetic space in fixtures. Synthetic
+	# unicast MACs use 02:, aa:, de:ad:; protocol addresses are published
+	# constants and are permitted verbatim.
+	hits=$(grep -rhoE '\b([0-9a-f]{2}:){5}[0-9a-f]{2}\b' "$ROOT/fixtures" 2>/dev/null \
+		| sort -u \
+		| grep -vE '^(02|aa|de):' \
+		| grep -vE '^(01:00:5e|33:33|01:80:c2|01:00:0c|09:00:2b|ff:ff:ff|00:00:00|01:00:81|01:e0:52)' \
+		| wc -l)
+	check "D15: fixtures contain no non-synthetic MAC" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	# D17: every user-facing string in the view is translatable.
+	if [ -f "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" ]; then
+		hits=$(grep -nE ">[A-Za-z][A-Za-z ]{3,}<" "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" 2>/dev/null | wc -l)
+		check "D17: no untranslated markup text" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+	fi
+
+	# Hints are pure functions of displayed values, so they are unit tested.
+	# Node is a development convenience, not a device dependency: when it is
+	# absent the checks are reported unrun rather than passed (CONVENTIONS.md).
+	if command -v node >/dev/null 2>&1; then
+		ran=$((ran + 1))
+		node "$ROOT/tests/hints.test.js" "$ROOT" || fail=1
+		ran=$((ran + 1))
+		node "$ROOT/tests/export.test.js" "$ROOT" || fail=1
+	else
+		echo "  SKIP hint and export unit tests (node not present; both unchecked)"
+	fi
+fi
+
+echo
+if [ "$fail" -eq 0 ]; then
+	echo "PASS ($ran groups)"
+else
+	echo "FAIL"
+fi
+
+exit $fail

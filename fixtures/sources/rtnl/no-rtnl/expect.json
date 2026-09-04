@@ -1,0 +1,11 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges":    { "status": "unavailable" },
+    "ports":      { "status": "unavailable" },
+    "fdb":        { "status": "unavailable" },
+    "neighbours": { "status": "unavailable" },
+    "names":      { "status": "unavailable" }
+  },
+  "row_counts": {}
+}

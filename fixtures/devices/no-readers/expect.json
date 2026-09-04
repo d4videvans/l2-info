@@ -1,0 +1,43 @@
+{
+  "scope": {
+    "bridges": {
+      "status": "not_applicable",
+      "reason": "no installed reader provides bridges on this device"
+    },
+    "ports": {
+      "status": "not_applicable",
+      "reason": "no installed reader provides ports on this device"
+    },
+    "fdb": {
+      "status": "not_applicable",
+      "reason": "no installed reader provides fdb on this device"
+    },
+    "neighbours": {
+      "status": "not_applicable",
+      "reason": "no installed reader provides neighbours on this device"
+    },
+    "names": {
+      "status": "not_applicable",
+      "reason": "no installed reader provides names on this device"
+    }
+  },
+  "counts": {
+    "bridges": 0,
+    "ports": 0,
+    "fdb": 0,
+    "neighbours": 0,
+    "names": 0
+  },
+  "conflicts": 0,
+  "hints": {
+    "fire": [
+      "no_reader"
+    ],
+    "silent": [
+      "no_vlan_filtering",
+      "pvid_inferred",
+      "conflict",
+      "fdb_indeterminate"
+    ]
+  }
+}

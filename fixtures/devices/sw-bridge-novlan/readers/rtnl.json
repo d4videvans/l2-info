@@ -1,0 +1,17 @@
+{
+  "api": 1, "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": ["bridges", "ports", "fdb", "neighbours", "names"],
+  "collections": {
+    "bridges": { "status": "ok" }, "ports": { "status": "ok" }, "fdb": { "status": "ok" },
+    "neighbours": { "status": "ok" },
+    "names": { "status": "unavailable", "reason": "no lease file and no /etc/ethers on this device" }
+  },
+  "rows": [
+    { "subject": { "bridge": "br-lan" }, "attrs": { "br.name": "br-lan", "br.vlan_filtering": false } },
+    { "subject": { "port": "lan1" }, "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan", "topo.carrier": true } },
+    { "subject": { "port": "wlan0" }, "attrs": { "topo.port": "wlan0", "topo.bridge": "br-lan", "topo.carrier": true } },
+    { "subject": { "mac": "aa:bb:cc:00:00:01" }, "attrs": { "fdb.port": "lan1", "fdb.bridge": "br-lan", "fdb.flags": ["master"] } },
+    { "subject": { "mac": "aa:bb:cc:00:00:02" }, "attrs": { "fdb.port": "wlan0", "fdb.bridge": "br-lan", "fdb.flags": ["master"] } }
+  ]
+}

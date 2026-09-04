@@ -1,0 +1,56 @@
+{
+  "counts": {
+    "ports": 1,
+    "fdb": 1
+  },
+  "conflicts": 1,
+  "entities": [
+    {
+      "collection": "ports",
+      "subject": {
+        "port": "lan5"
+      },
+      "attrs": {
+        "topo.bridge": "br-lan"
+      },
+      "attrs_absent": [
+        "topo.vlan_pvid"
+      ],
+      "source": [
+        "aa-first",
+        "bb-second"
+      ],
+      "disputed": {
+        "topo.vlan_pvid": [
+          {
+            "source": "aa-first",
+            "value": 12
+          },
+          {
+            "source": "bb-second",
+            "value": 1
+          }
+        ]
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:bb:cc:00:00:05"
+      },
+      "derived": {
+        "vlan": null,
+        "vlan_source": null
+      }
+    }
+  ],
+  "hints": {
+    "fire": [
+      "conflict"
+    ],
+    "silent": [
+      "pvid_inferred",
+      "no_vlan_filtering"
+    ]
+  }
+}

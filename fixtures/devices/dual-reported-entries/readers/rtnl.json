@@ -1,0 +1,202 @@
+{
+  "api": 1,
+  "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": [
+    "bridges",
+    "ports",
+    "fdb",
+    "neighbours",
+    "names"
+  ],
+  "collections": {
+    "bridges": {
+      "status": "ok"
+    },
+    "ports": {
+      "status": "ok"
+    },
+    "fdb": {
+      "status": "ok"
+    },
+    "neighbours": {
+      "status": "ok"
+    },
+    "names": {
+      "status": "ok",
+      "note": "read /etc/ethers; no address to name mappings in them"
+    }
+  },
+  "rows": [
+    {
+      "subject": {
+        "bridge": "switch"
+      },
+      "attrs": {
+        "br.name": "switch",
+        "br.vlan_filtering": true
+      }
+    },
+    {
+      "subject": {
+        "port": "lan2"
+      },
+      "attrs": {
+        "topo.port": "lan2",
+        "topo.bridge": "switch",
+        "topo.address": "02:8b:f3:fc:bb:75",
+        "topo.vlans": [
+          5
+        ],
+        "topo.vlan_flags": [
+          "PVID Egress Untagged"
+        ],
+        "topo.vlan_pvid": 5,
+        "topo.vlan_untagged": [
+          5
+        ]
+      }
+    },
+    {
+      "subject": {
+        "port": "lan1"
+      },
+      "attrs": {
+        "topo.port": "lan1",
+        "topo.bridge": "switch",
+        "topo.address": "02:8b:f3:fc:bb:75",
+        "topo.vlans": [
+          5
+        ],
+        "topo.vlan_flags": [
+          "PVID Egress Untagged"
+        ],
+        "topo.vlan_pvid": 5,
+        "topo.vlan_untagged": [
+          5
+        ]
+      }
+    },
+    {
+      "subject": {
+        "port": "lan24"
+      },
+      "attrs": {
+        "topo.port": "lan24",
+        "topo.bridge": "switch",
+        "topo.address": "02:8b:f3:fc:bb:75",
+        "topo.vlans": [
+          1,
+          5,
+          12,
+          20
+        ],
+        "topo.vlan_flags": [
+          "",
+          "",
+          "",
+          ""
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "aa:5d:64:54:e0:15"
+      },
+      "attrs": {
+        "fdb.port": "lan2",
+        "fdb.vlan": 5,
+        "fdb.bridge": "switch",
+        "fdb.flags": [
+          "master"
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "aa:5d:64:54:e0:15"
+      },
+      "attrs": {
+        "fdb.port": "lan2",
+        "fdb.flags": [
+          "self"
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "de:7d:22:01:18:9b"
+      },
+      "attrs": {
+        "fdb.port": "lan24",
+        "fdb.vlan": 1,
+        "fdb.bridge": "switch",
+        "fdb.flags": [
+          "master"
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "de:7d:22:01:18:9b"
+      },
+      "attrs": {
+        "fdb.port": "lan24",
+        "fdb.flags": [
+          "self"
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "02:8b:f3:fc:bb:75"
+      },
+      "attrs": {
+        "fdb.port": "lan1",
+        "fdb.bridge": "switch",
+        "fdb.flags": [
+          "permanent"
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "02:8b:f3:fc:bb:75"
+      },
+      "attrs": {
+        "fdb.port": "switch",
+        "fdb.vlan": 1,
+        "fdb.bridge": "switch",
+        "fdb.flags": [
+          "permanent"
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "02:8b:f3:fc:bb:75"
+      },
+      "attrs": {
+        "fdb.port": "switch",
+        "fdb.vlan": 5,
+        "fdb.bridge": "switch",
+        "fdb.flags": [
+          "permanent"
+        ]
+      }
+    },
+    {
+      "subject": {
+        "mac": "02:8b:f3:fc:bb:75"
+      },
+      "attrs": {
+        "fdb.port": "switch",
+        "fdb.vlan": 12,
+        "fdb.bridge": "switch",
+        "fdb.flags": [
+          "permanent"
+        ]
+      }
+    }
+  ]
+}

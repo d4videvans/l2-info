@@ -1,0 +1,12 @@
+{
+  "api": 1, "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": ["bridges", "ports", "fdb"],
+  "collections": { "bridges": { "status": "ok" }, "ports": { "status": "ok" }, "fdb": { "status": "ok" } },
+  "rows": [
+    { "subject": { "bridge": "br-lan" }, "attrs": { "br.name": "br-lan", "br.vlan_filtering": true } },
+    { "subject": { "port": "lan1" }, "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan",
+      "topo.vlans": [1], "topo.vlan_flags": ["PVID Egress Untagged"], "topo.vlan_pvid": 1 } },
+    { "subject": { "mac": "aa:bb:cc:00:00:01" }, "attrs": { "fdb.port": "lan1", "fdb.vlan": 1, "fdb.flags": ["self"] } }
+  ]
+}

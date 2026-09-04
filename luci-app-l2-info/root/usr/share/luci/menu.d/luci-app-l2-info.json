@@ -1,0 +1,13 @@
+{
+	"admin/status/l2-info": {
+		"title": "MAC & VLAN Lookup",
+		"order": 55,
+		"action": {
+			"type": "view",
+			"path": "l2-info/main"
+		},
+		"depends": {
+			"acl": [ "luci-app-l2-info" ]
+		}
+	}
+}

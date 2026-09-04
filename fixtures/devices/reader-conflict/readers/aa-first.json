@@ -1,0 +1,11 @@
+{
+  "api": 1, "cost": "software",
+  "describe": "First source of port facts",
+  "provides": ["ports", "fdb"],
+  "collections": { "ports": { "status": "ok" }, "fdb": { "status": "ok" } },
+  "rows": [
+    { "subject": { "port": "lan5" }, "attrs": { "topo.port": "lan5", "topo.bridge": "br-lan",
+      "topo.vlans": [12], "topo.vlan_flags": ["PVID Egress Untagged"], "topo.vlan_pvid": 12 } },
+    { "subject": { "mac": "aa:bb:cc:00:00:05" }, "attrs": { "fdb.port": "lan5", "fdb.flags": ["self"] } }
+  ]
+}

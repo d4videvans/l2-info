@@ -1,0 +1,10 @@
+{
+  "api": 1, "cost": "software",
+  "describe": "Second source of port facts",
+  "provides": ["ports"],
+  "collections": { "ports": { "status": "ok" } },
+  "rows": [
+    { "subject": { "port": "lan5" }, "attrs": { "topo.port": "lan5", "topo.bridge": "br-lan",
+      "topo.vlan_pvid": 1 } }
+  ]
+}

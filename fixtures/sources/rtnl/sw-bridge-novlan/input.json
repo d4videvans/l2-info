@@ -1,0 +1,18 @@
+{
+  "link_bridge": {
+    "rows": [
+      { "ifname": "br-lan", "address": "02:aa:bb:cc:dd:00", "carrier": true },
+      { "ifname": "lan1", "master": "br-lan", "carrier": true, "address": "02:aa:bb:cc:dd:01" },
+      { "ifname": "wlan0", "master": "br-lan", "carrier": true, "address": "02:aa:bb:cc:dd:02" }
+    ]
+  },
+  "neigh_bridge": {
+    "rows": [
+      { "dev": "lan1", "lladdr": "aa:bb:cc:00:00:01", "state": 2, "flags": 4, "master": "br-lan" },
+      { "dev": "wlan0", "lladdr": "aa:bb:cc:00:00:02", "state": 2, "flags": 4, "master": "br-lan" }
+    ]
+  },
+  "neigh_inet": { "rows": [] },
+  "neigh_inet6": { "rows": [] },
+  "files": { "/sys/class/net/br-lan/bridge/vlan_filtering": "0\n" }
+}

@@ -1,0 +1,42 @@
+{
+  "api": 1,
+  "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": ["bridges", "ports", "fdb", "neighbours", "names"],
+  "collections": {
+    "bridges":    { "status": "ok" },
+    "ports":      { "status": "ok" },
+    "fdb":        { "status": "ok" },
+    "neighbours": { "status": "ok" },
+    "names":      { "status": "ok" }
+  },
+  "rows": [
+    { "subject": { "bridge": "br-lan" }, "attrs": { "br.name": "br-lan", "br.vlan_filtering": true } },
+
+    { "subject": { "port": "lan1" }, "attrs": { "topo.port": "lan1", "topo.bridge": "br-lan",
+      "topo.carrier": true, "topo.address": "02:11:22:33:44:01",
+      "topo.vlans": [1,20,21,22,30,40,50], "topo.vlan_flags": ["","","","","","",""] } },
+    { "subject": { "port": "lan2" }, "attrs": { "topo.port": "lan2", "topo.bridge": "br-lan",
+      "topo.carrier": true, "topo.address": "02:11:22:33:44:02",
+      "topo.vlans": [20,30], "topo.vlan_flags": ["PVID Egress Untagged",""],
+      "topo.vlan_pvid": 20, "topo.vlan_untagged": [20] } },
+    { "subject": { "port": "lan3" }, "attrs": { "topo.port": "lan3", "topo.bridge": "br-lan",
+      "topo.carrier": false, "topo.address": "02:11:22:33:44:03",
+      "topo.vlans": [20], "topo.vlan_flags": ["PVID Egress Untagged"],
+      "topo.vlan_pvid": 20, "topo.vlan_untagged": [20] } },
+    { "subject": { "port": "switch" }, "attrs": { "topo.port": "switch", "topo.carrier": true,
+      "topo.address": "02:11:22:33:44:ff" } },
+
+    { "subject": { "mac": "aa:bb:cc:11:22:33" }, "attrs": { "fdb.port": "lan1", "fdb.vlan": 1, "fdb.flags": ["self"] } },
+    { "subject": { "mac": "de:ad:be:ef:00:11" }, "attrs": { "fdb.port": "lan2", "fdb.vlan": 20, "fdb.flags": ["self"] } },
+    { "subject": { "mac": "de:ad:be:ef:00:22" }, "attrs": { "fdb.port": "lan2", "fdb.vlan": 30, "fdb.flags": ["self","static"] } },
+    { "subject": { "mac": "aa:bb:cc:44:55:66" }, "attrs": { "fdb.port": "lan2", "fdb.flags": ["self"] } },
+    { "subject": { "mac": "aa:bb:cc:99:88:77" }, "attrs": { "fdb.port": "lan3", "fdb.vlan": 20, "fdb.flags": ["self"] } },
+    { "subject": { "mac": "33:33:00:00:00:01" }, "attrs": { "fdb.port": "switch", "fdb.flags": ["self","permanent"] } },
+    { "subject": { "mac": "01:00:5e:00:00:fb" }, "attrs": { "fdb.port": "switch", "fdb.flags": ["self","permanent"] } },
+    { "subject": { "mac": "01:e0:52:cc:cc:cc" }, "attrs": { "fdb.port": "switch", "fdb.flags": ["self","permanent"] } },
+
+    { "subject": { "mac": "de:ad:be:ef:00:11" }, "attrs": { "neigh.ips": ["10.0.20.50"] } },
+    { "subject": { "mac": "de:ad:be:ef:00:11" }, "attrs": { "name.hostname": "nas" } }
+  ]
+}
