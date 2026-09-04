@@ -54,6 +54,7 @@ is navigation, not a rival definition, and the owning document wins.
 | `docs/snapshot-format.md` | The snapshot contract: envelope, scope, rows, versioning |
 | `docs/fixtures.md` | Device classes, fixture layout, capture and redaction |
 | `docs/decisions.md` | Every settled and deferred decision, with consequences |
+| `docs/remediation.md` | The current upstream-hardening work plan and hardware matrix |
 | `CONVENTIONS.md` | Contributor and agent conventions, mechanical checks |
 
 ## Status
@@ -77,11 +78,13 @@ The live switch now reports 28 ports, zero conflicts, and 83 forwarding entries
 split 45/38 between the switch hardware and the software bridge, merging to 55
 distinct observations.
 
-`tests/run.sh` replays 18 fixtures across three seams and runs the mechanical
-checks that enforce the principles. What that proves is parsing, merging, scope
-declaration, derivation and hint firing. What it cannot prove is that any real
-driver behaves as its fixture claims, or what a snapshot costs on a switch —
-both need hardware (`docs/fixtures.md`, final section).
+`sh tests/run.sh` replays 18 fixtures across three seams and runs the mechanical
+checks that enforce the principles. With Node present it also directly tests
+hint, export, query/filter and diff/scope policy. What that proves is parsing,
+merging, scope declaration, derivation and the tested presentation policy. What
+it cannot prove is that any real driver behaves as its fixture claims, or what
+a snapshot costs on a switch — both need hardware (`docs/fixtures.md`, final
+section).
 
 Open decisions: D21 (a `capture` method for fixture contribution) and D22
 (panel layout).
@@ -101,7 +104,7 @@ scp l2-info/files/usr/share/l2-info/readers/rtnl.uc root@dev:/usr/share/l2-info/
 # view
 scp luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js \
     root@dev:/www/luci-static/resources/view/l2-info/
-scp luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js \
+scp luci-app-l2-info/htdocs/luci-static/resources/l2-info/*.js \
     root@dev:/www/luci-static/resources/l2-info/
 scp luci-app-l2-info/root/usr/share/luci/menu.d/*.json  root@dev:/usr/share/luci/menu.d/
 scp luci-app-l2-info/root/usr/share/rpcd/acl.d/*.json   root@dev:/usr/share/rpcd/acl.d/
