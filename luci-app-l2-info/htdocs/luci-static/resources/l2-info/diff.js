@@ -10,7 +10,10 @@
 'use strict';
 'require baseclass';
 
-var COLLECTIONS = [ 'bridges', 'ports', 'fdb', 'neighbours', 'names' ];
+/* Only these collections can change diff identity or movement interpretation:
+ * FDB rows directly, and port facts through PVID/local-address derivation.
+ * Names and neighbours are annotations and must not make an FDB diff unusable. */
+var DIFF_COLLECTIONS = [ 'ports', 'fdb' ];
 
 function observationKey(r) {
 	return [ r.subject.mac, r.attrs['fdb.port'], r.derived.vlan ].join('/');
@@ -29,15 +32,21 @@ function collectionFingerprint(snap, name) {
 function readerFingerprint(snap) {
 	return Object.keys(snap.scope?.readers || {}).sort().map(function(id) {
 		var r = snap.scope.readers[id] || {};
+		var provides = (r.provides || []).filter(function(c) {
+			return DIFF_COLLECTIONS.indexOf(c) >= 0;
+		}).sort();
+
+		if (!provides.length)
+			return null;
 
 		return JSON.stringify({
 			id: id,
 			status: r.status ?? null,
 			api: r.api ?? null,
-			provides: (r.provides || []).slice().sort(),
+			provides: provides,
 			reason: r.reason ?? null
 		});
-	}).join('|');
+	}).filter(Boolean).join('|');
 }
 
 function scopeCompatible(a, b) {
@@ -46,7 +55,7 @@ function scopeCompatible(a, b) {
 	if (a.format != b.format || a.version != b.version)
 		differ.push({ kind: 'format-version' });
 
-	COLLECTIONS.forEach(function(c) {
+	DIFF_COLLECTIONS.forEach(function(c) {
 		var x = a.scope?.[c] || {}, y = b.scope?.[c] || {};
 
 		if (x.status != y.status) {
