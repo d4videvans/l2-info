@@ -1,5 +1,7 @@
 # l2-info
 
+##***PLEASE NOTE: This is work in progress, it may not function as expected, or at all.***##
+
 Answers, on one OpenWrt device, from live kernel state:
 
 - which MAC addresses are on which ports and VLANs
