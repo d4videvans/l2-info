@@ -110,11 +110,10 @@ ssh root@dev '/etc/init.d/rpcd restart; rm -f /tmp/luci-indexcache*'
 ssh root@dev 'time ubus call l2-info snapshot'
 ```
 
-Create the target directories first; that last line is the cost measurement
-that decides whether D20 needs reopening.
-
 ## Relation to bearings
 
+Some of the design choices are related to something else I'm working on, as yet
+unpublished:
 `bearings` is a separate fleet-scale system: many devices, spooled captures, a
 store, and cross-device inference. This project borrows its attribute
 vocabulary and several of its hard-won lessons (see `docs/decisions.md` D9,
