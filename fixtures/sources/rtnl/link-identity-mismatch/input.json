@@ -1,0 +1,12 @@
+{
+  "link_generic": { "rows": [] },
+  "link_bridge": {
+    "rows": [
+      { "ifname": "lan1", "master": "br-lan", "carrier": true }
+    ]
+  },
+  "neigh_bridge": { "rows": [] },
+  "neigh_inet": { "rows": [] },
+  "neigh_inet6": { "rows": [] },
+  "files": { "/etc/ethers": "\n" }
+}
