@@ -78,21 +78,26 @@ reads. Adding a method requires a decision record.
 | # | Source | Interface | Yields |
 |---|---|---|---|
 | 1 | Board | `ubus call system board` | board name, target, kernel — makes the snapshot self-describing |
-| 2 | Links | `RTM_GETLINK`, `family=AF_BRIDGE`, `ext_mask` | ports, bridge membership, carrier, per-port VLAN membership with PVID and untagged flags |
-| 3 | FDB | `RTM_GETNEIGH`, `family=AF_BRIDGE` | MAC, port, VLAN id, state and flags |
-| 4 | Neighbours | `RTM_GETNEIGH`, `family=AF_INET` / `AF_INET6` | MAC → IP, for recognisability |
-| 5 | Names | `/tmp/dhcp.leases`, `/etc/ethers` | MAC → hostname |
+| 2 | Link identity | generic `RTM_GETLINK` | interface kind; bridge identity from `linkinfo.type == "bridge"` |
+| 3 | Bridge links | `RTM_GETLINK`, `family=AF_BRIDGE`, `ext_mask` | ports, bridge membership, carrier, per-port VLAN membership with PVID and untagged flags |
+| 4 | FDB | `RTM_GETNEIGH`, `family=AF_BRIDGE` | MAC, port, VLAN id, state and flags |
+| 5 | Neighbours | `RTM_GETNEIGH`, `family=AF_INET` / `AF_INET6` | MAC → IP, for recognisability |
+| 6 | Names | `/tmp/dhcp.leases`, `/etc/ethers` | MAC → hostname |
 
 These are the core reader's reads, not the tool's: a third-party reader has its
-own list and declares which collections it covers. Reads 1–3 are load-bearing.
-Reads 4–5 are annotation: on a pure L2 switch they
-are legitimately near-empty, which is a declared `ok`-with-zero-rows or
-`unavailable`, never a blank column (P1).
+own list and declares which collections it covers. Reads 1–4 are load-bearing.
+Reads 5–6 are annotation: on a pure L2 switch they are legitimately near-empty,
+which is a declared `ok`-with-zero-rows or `unavailable`, never a blank column
+(P1).
 
 Every read goes through one wrapper that checks `rtnl.error()` and returns
 either rows or an error, so a failure can never be rendered as an empty table.
+The two link dumps are deliberately coupled for the `bridges` and `ports`
+collections: if generic link identity and AF_BRIDGE membership cannot both be
+read consistently, those collections are declared unavailable rather than one
+view being promoted into a substitute for the other (D46).
 
-Read 5's presence is probed per call rather than cached, because a lease file
+Read 6's presence is probed per call rather than cached, because a lease file
 only exists once a first lease has been issued and that can happen after this
 process started.
 
@@ -157,15 +162,24 @@ The converse is not evidence: zero such entries could be an idle switch or a
 driver that never reports one. That asymmetry is exactly P4, and it is why the
 status vocabulary has `indeterminate`.
 
-Classes 3–5 are readable from the link dump and the bridge filtering flag.
-Class 5 is additionally suggested by the board/target and by every bridge
-having exactly one VLAN.
+Classes 3–5 are readable from the link dumps and the bridge filtering flag.
+Bridge existence itself comes from the generic link kind, independently of
+whether the bridge has members (D46). Class 5 is additionally suggested by the
+board/target and by every bridge having exactly one VLAN.
 
 ## Kernel behaviour this design depends on
 
-Verified against current sources, and worth restating because two of these are
-counter-intuitive.
+Verified against current sources and hardware observations, and worth
+restating because several are counter-intuitive.
 
+- **Bridge identity is in the generic link kind, not AF_BRIDGE membership.**
+  `ucode-mod-rtnl` decodes `IFLA_INFO_KIND` as `linkinfo.type`. On an x86/64
+  OpenWrt 25.12.5 system (kernel 6.12.94), every software bridge appeared as
+  `linkinfo.type: "bridge"` in a generic RTM_GETLINK dump. In the AF_BRIDGE
+  dump the same bridge devices had `linkinfo: null` and appeared self-mastered.
+  `/sys/class/net/*/bridge` agreed with the generic link-kind set. This was a
+  development probe; `l2-info` itself was not installed on that box, so it is
+  not package-level compatibility evidence (D46).
 - **`rtnl_fdb_dump()` filters by ifindex.** Setting the request header's
   ifindex causes the kernel to skip every other netdev, so a port-scoped dump
   invokes `port_fdb_dump` once rather than once per port. This tool does not
@@ -190,7 +204,7 @@ counter-intuitive.
 
 ## Cost model
 
-The expensive read is #3, and only on switch hardware.
+The expensive read is #4, and only on switch hardware.
 
 On the realtek DSA driver, `port_fdb_dump` walks the entire hardware L2 table
 for each port, holding the switch register mutex, with `cond_resched()` every
@@ -202,7 +216,8 @@ mutex.
 This is accepted deliberately (`docs/decisions.md` D2, D20). The snapshot model
 means it happens once per user action rather than once per query, the duration
 is measured and displayed so the cost is visible rather than mysterious, and
-nothing polls. Reads 1, 2, 4 and 5 are software-only and negligible.
+nothing polls. Reads 1–3, 5 and 6 are software-only and negligible; D46's extra
+generic link dump is in that negligible group.
 
 Payload is not a constraint: a real 24-port switch snapshot is a few hundred
 rows, and at roughly 400 bytes per row that is well under a megabyte.
