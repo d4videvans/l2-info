@@ -12,18 +12,24 @@ checks with the principle each one enforces.
 ## Before opening a pull request
 
 ```sh
-tests/run.sh
+sh tests/run.sh
 ```
 
 Everything must pass, including the mechanical checks. With a locally built
 ucode rather than a device's:
 
 ```sh
-UCODE=~/ucode/build/ucode UCODE_LIB=~/ucode/build tests/run.sh
+UCODE=~/ucode/build/ucode UCODE_LIB=~/ucode/build sh tests/run.sh
 ```
 
-Node is optional and only runs the hint and export unit tests; when it is
-absent the runner reports them unrun rather than passed.
+Node is optional for the development runner and executes the hint, export,
+query/filter and diff/scope unit tests. When it is absent the runner reports
+those tests unrun rather than passed. CI must provide Node, so these tests are
+not optional in automated validation.
+
+Using `sh tests/run.sh` is deliberate even if the executable bit is present in
+a git checkout: it also works after zip/archive round-trips which may not
+preserve that bit.
 
 ## Two things that will get a change sent back
 
