@@ -390,17 +390,22 @@ return view.extend({
 		/* Ages the label only. There is no data poll anywhere: the snapshot
 		 * changes when the user presses Update and at no other time, and P6
 		 * requires that its age be visible while it sits there. */
-		function tick() {
-			if (!S.current)
+		function updateAge() {
+			if (!S.current) {
 				dom.content(age, _('never'));
-			else {
-				var secs = Math.max(0, Math.round((Date.now() - S.currentAt) / 1000));
-				var when = (secs < 60) ? _('%d s ago').format(secs)
-					: (secs < 3600) ? _('%d min ago').format(Math.round(secs / 60))
-					: _('%d h ago').format(Math.round(secs / 3600));
-
-				dom.content(age, [ S.current.captured_at, ' (', when, ')' ]);
+				return;
 			}
+
+			var secs = Math.max(0, Math.round((Date.now() - S.currentAt) / 1000));
+			var when = (secs < 60) ? _('%d s ago').format(secs)
+				: (secs < 3600) ? _('%d min ago').format(Math.round(secs / 60))
+				: _('%d h ago').format(Math.round(secs / 3600));
+
+			dom.content(age, [ S.current.captured_at, ' (', when, ')' ]);
+		}
+
+		function tick() {
+			updateAge();
 
 			/* One timeout may fire after navigation; it sees the detached age
 			 * node and stops. No interval survives a discarded view. */
@@ -478,7 +483,7 @@ return view.extend({
 			inPort.value = keep;
 
 			redrawQuery();
-			tick();
+			updateAge();
 		}
 
 		function update(ev) {
