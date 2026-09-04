@@ -152,16 +152,18 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "checks" ]; then
 		check "D17: no untranslated markup text" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
 	fi
 
-	# Hints are pure functions of displayed values, so they are unit tested.
-	# Node is a development convenience, not a device dependency: when it is
-	# absent the checks are reported unrun rather than passed (CONVENTIONS.md).
+	# Pure presentation logic is unit tested outside the browser. Node is a
+	# development convenience, not a device dependency: when it is absent the
+	# checks are reported unrun rather than passed (CONVENTIONS.md).
 	if command -v node >/dev/null 2>&1; then
 		ran=$((ran + 1))
 		node "$ROOT/tests/hints.test.js" "$ROOT" || fail=1
 		ran=$((ran + 1))
 		node "$ROOT/tests/export.test.js" "$ROOT" || fail=1
+		ran=$((ran + 1))
+		node "$ROOT/tests/diff.test.js" "$ROOT" || fail=1
 	else
-		echo "  SKIP hint and export unit tests (node not present; both unchecked)"
+		echo "  SKIP hint, export and diff unit tests (node not present; all unchecked)"
 	fi
 fi
 
