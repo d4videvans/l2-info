@@ -148,9 +148,9 @@ function discover(dir) {
 	return { readers: found, report };
 }
 
-// Readers are handed their primitives rather than importing them, so that
-// fixture replay is total and so that a reader is structurally incapable of
-// writing anything (D34).
+// Readers are handed source primitives for dependency injection and total
+// fixture replay. This is a contract, not a sandbox: reader modules are trusted
+// package code running in-process with rpcd and can ignore ctx (D34).
 function make_context() {
 	let nl = null;
 

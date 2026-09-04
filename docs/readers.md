@@ -6,6 +6,9 @@ things that can see L2 state. It is the only place the reader manifest, the
 
 A reader is optional, separately packaged, and declares what it can see. The
 core depends on exactly one (`rtnl`) and treats it identically to any other.
+Readers are **trusted package code**: they are loaded into the rpcd process and
+are subject to review and package trust in exactly the same way as the core.
+The reader interface is a contract and a test seam, not a sandbox.
 
 ---
 
@@ -131,8 +134,8 @@ Returns per-collection status and rows. Nothing else.
 
 ### The context
 
-A reader imports no source module and binds nothing at load time: the
-assembler hands it the primitives it may use (D34).
+A conforming reader imports no source module and binds nothing at load time:
+the assembler hands it the source primitives it should use (D34).
 
 | Field | Provides |
 |---|---|
@@ -141,13 +144,20 @@ assembler hands it the primitives it may use (D34).
 | `ctx.fs` | `readfile(path)` and `access(path, mode)`, both returning null/false rather than raising |
 | `ctx.ubus` | `call(object, method, args)`, returning null on failure |
 
-Two consequences worth stating plainly. A reader is **structurally** incapable
-of writing anything, because it is given no primitive that writes — §5's rule
-against writing is a property of the interface rather than something review
-has to catch. And there is deliberately **no exec primitive**: a reader that
-needs to run a program (a `swconfig` reader would) cannot quietly acquire one,
-so adding it is a decision record and an api bump. That is the gate D3's
-reasoning wants on shelling out.
+The purpose of this context is **dependency injection and total fixture
+replay**. It is not a capability boundary. Reader modules execute as trusted
+code inside rpcd: ucode can import other modules directly, `ctx.nl` is a raw
+rtnetlink handle, and `ctx.ubus.call()` is not restricted to a read-method
+allowlist. Passing only observational helpers therefore does not make an
+installed reader incapable of writing.
+
+The contract still deliberately exposes no exec helper. A conforming reader
+that needs to execute a program (a `swconfig` reader would) needs a decision
+record and an api bump rather than quietly acquiring a new source dependency.
+That is an architectural/review gate, not a sandbox: arbitrary installed code
+could ignore the contract. If untrusted reader code ever becomes a requirement,
+it needs an actual process/privilege boundary and a separate threat-model
+decision rather than stronger wording around `ctx`.
 
 `ctx.nl` being null is a normal case, not an error: the reader declares every
 collection it claimed `unavailable` with that reason, which is what
@@ -188,7 +198,9 @@ reader asserts this.
 
 `read()` must not block indefinitely, must not retry unboundedly, must not
 spawn background work, and must hold no mutable state between calls. It must
-not write anything, anywhere (P7 applies transitively).
+not write anything, anywhere (P7 applies transitively). These are obligations
+on trusted reader code, enforced by review and tests where possible; they are
+not containment guarantees against a malicious or defective installed module.
 
 It must not read **another device**. Anything reachable over the network is a
 second device, which is a fleet system's problem by definition and explicitly
@@ -228,7 +240,7 @@ installed but unusable is visible, not absent.
   fleet project because `ip-bridge` was not installed
   (`docs/decisions.md` D3).
 
-### The reference reader has no privileges
+### The reference reader has no special treatment
 
 `rtnl` loads through this same path and is validated by the same rules. If the
 core contains a literal reader id anywhere — a special case, a fallback, an
@@ -326,10 +338,13 @@ The rigour belongs in the data. The view is a lookup tool, not a lecture.
    the reader's normalised output (`docs/fixtures.md`).
 2. Manifest validation passes; `id` equals the filename stem.
 3. No `derived` and no `source` emitted; registered attributes only.
-4. Declared `cost`, honestly.
-5. Package dependencies cover every runtime prerequisite, so the reader cannot
+4. Source reads use the supplied context rather than importing source modules,
+   so fixture replay remains total. This is a conformance rule, not a security
+   boundary.
+5. Declared `cost`, honestly.
+6. Package dependencies cover every runtime prerequisite, so the reader cannot
    be installed without what it needs.
-6. A `NOTES.md` in its fixture directory saying which hardware or arrangement
+7. A `NOTES.md` in its fixture directory saying which hardware or arrangement
    the capture came from, and what makes it distinctive.
 
 A reader without a fixture is unmergeable. Adding a source requires adding the
@@ -347,13 +362,15 @@ inference was deleted for guessing: an LLDP neighbour distinguishes "another
 switch" from "several devices behind an unmanaged hub" as fact. Provides
 `ports`.
 
-**`swconfig-arl`** — the address table on pre-DSA swconfig targets. Would need
-an exec primitive, so it needs a decision record and an api bump before it can
-exist (§5). `arl_table`
-is a real readable attribute on the ar8xxx driver family. It is also the best
-available test of the manifest, because sibling drivers differ: b53 implements
-only a flush operation and no read, so the same reader honestly provides `fdb`
-on one chip family and reports `indeterminate` on another.
+**`swconfig-arl`** — the address table on pre-DSA swconfig targets. The current
+reader contract deliberately provides no exec helper, so a conforming reader
+which shells out needs a decision record and an api bump before it can exist
+(§5). This is an interface/review constraint, not containment of arbitrary
+installed ucode. `arl_table` is a real readable attribute on the ar8xxx driver
+family. It is also the best available test of the manifest, because sibling
+drivers differ: b53 implements only a flush operation and no read, so the same
+reader honestly provides `fdb` on one chip family and reports `indeterminate`
+on another.
 
 **Out of scope:** anything reading another device — SNMP, ssh, a controller
 API. That is a second device and belongs to a fleet system.

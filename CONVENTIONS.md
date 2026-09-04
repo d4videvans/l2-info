@@ -42,10 +42,17 @@ the view (D13's pattern).
 
 ## Adding a reader
 
+Readers are trusted package code loaded into rpcd. `read(ctx)` is the
+conformance and testability seam, not a sandbox or privilege boundary (D34).
+Review a reader on the same trust basis as any other code installed on the
+device.
+
 1. One file returning a manifest, at `/usr/share/l2-info/readers/<id>.uc`, with
-   `id` equal to the filename stem. Contract: `docs/readers.md`. `read(ctx)`
-   uses only the primitives it is handed — it imports no source module, which
-   is what keeps fixture replay total (D34).
+   `id` equal to the filename stem. Contract: `docs/readers.md`. A conforming
+   `read(ctx)` uses only the source primitives it is handed — it imports no
+   source module — which is what keeps fixture replay total (D34). Arbitrary
+   installed ucode can ignore this rule; that is why it is a contract rather
+   than a security claim.
 2. Emit `subject` and `attrs` only. No `derived`, no `source` — the assembler
    owns both, and a reader that derives is the start of a second
    implementation of the same inference.
@@ -108,8 +115,10 @@ These run in `tests/run.sh` and are the enforcement referred to throughout
 
 A check that cannot be automated is not enforcement; say so plainly rather than
 implying coverage. In particular: nothing here proves a real driver behaves as
-its fixture claims, nothing here measures cost on real hardware, and a reader's
-declared `cost` is a claim no fixture can verify.
+its fixture claims, nothing here measures cost on real hardware, a reader's
+declared `cost` is a claim no fixture can verify, and no repository check
+sandboxes a trusted reader or proves arbitrary installed reader code cannot
+write.
 
 ## Claims
 

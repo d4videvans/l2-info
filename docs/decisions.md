@@ -472,29 +472,40 @@ epistemic annotation is a worse lookup tool, and P5 already establishes that
 interpretation belongs in presentation — this is the same boundary seen from
 the other side.
 
-## D34 — `read(ctx)`: readers are handed their primitives — settled
+## D34 — `read(ctx)`: readers are handed their primitives — settled, corrected
 
 Amends `docs/readers.md` §2 and §5, which specified `read()` as taking no
-arguments. The assembler now passes a context carrying `api`, `nl` (the
-netlink handle, or null), `fs` (readfile and access) and `ubus` (call). A
-reader imports no source module and binds nothing at load time.
+arguments. The assembler passes a context carrying `api`, `nl` (the netlink
+handle, or null), `fs` (readfile and access) and `ubus` (call). A conforming
+reader uses those source primitives rather than binding a source module at load
+time.
 
-Found while writing the fixture harnesses. Two independent reasons, and the
-second is the stronger:
+The surviving reason is **total fixture replay without a production test
+hook**. With a compile-time `import ... from 'rtnl'`, the ways to replay a
+fixture are a global the production code consults or shadowing the module
+search path. Both put test concerns in shipped code. A parameter puts them
+nowhere.
 
-1. **Stubbing becomes total with no test hook.** With a compile-time
-   `import ... from 'rtnl'` the only ways to replay a fixture are a global the
-   production code consults, or shadowing the module search path. Both put
-   test concerns in shipped code. A parameter puts them nowhere.
-2. **A reader becomes structurally incapable of writing.** It is handed read
-   primitives and nothing else, so "a reader must not write" (docs/readers.md
-   §5) stops being a rule that has to be reviewed and becomes a property of
-   the interface. A reader needing to execute a program — a `swconfig` reader
-   would — cannot quietly acquire it: `ctx` has no exec primitive, so adding
-   one is a decision record and an api bump, which is exactly the gate D3's
-   rationale wants on shelling out.
+**Correction, 2026-09-04.** The original decision recorded a second rationale:
+that passing only read helpers made a reader "structurally incapable of
+writing". That claim was false. A reader is ordinary ucode loaded with
+`loadfile()` inside rpcd and can import modules itself; this was verified by a
+test reader importing `writefile` from `fs` and successfully writing a file.
+The supplied `nl` handle and generic `ubus.call()` are not capability-limited
+security wrappers either.
 
-No api bump: nothing has shipped against api 1.
+Readers are therefore **trusted package code**. `read(ctx)` is a conformance
+contract and dependency-injection seam, not a sandbox or privilege boundary.
+The absence of an exec helper still means a *conforming* reader cannot add an
+exec-based source without a decision record and api change, which is the
+architectural gate D3 wants; it does not prevent arbitrary installed code from
+ignoring the contract. If untrusted readers ever become a requirement, that
+needs process/privilege isolation and a new threat-model decision rather than a
+stronger `ctx` abstraction.
+
+No api bump: the call shape and reader contract for conforming code are
+unchanged; the correction removes an invalid security property rather than
+changing the interface.
 
 ## D35 — Port and bridge facts are reported, not derived — settled
 
