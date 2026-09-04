@@ -775,6 +775,41 @@ rather than the absence of junk.
 observations. All three were defects in earlier builds and are now correct on
 hardware.
 
+## D46 — Bridge identity comes from the generic link kind — settled
+
+The `rtnl` reader uses **two RTM_GETLINK views for two different facts**:
+
+1. a generic RTM_GETLINK dump identifies bridge devices from their own
+   `linkinfo.type == "bridge"` (`IFLA_INFO_KIND`);
+2. an `AF_BRIDGE` RTM_GETLINK dump with the bridge-VLAN ext-mask supplies
+   bridge-port membership and live VLAN membership.
+
+The old implementation inferred bridge identity from AF_BRIDGE `master`
+references. That worked on populated bridges and was patched in D41 for the
+self-mastered form seen on the GS1920, but it still made bridge existence depend
+on membership. An empty bridge could therefore disappear entirely.
+
+A development probe on an **x86/64 OpenWrt 25.12.5** device (kernel 6.12.94)
+settled the source shape. Every software bridge in the generic dump exposed
+`linkinfo.type: "bridge"`; the same bridge devices in the AF_BRIDGE view exposed
+`linkinfo: null` and appeared self-mastered. `/sys/class/net/*/bridge` agreed
+with the generic link-kind set. This is evidence for the rtnetlink shape only:
+`l2-info` itself was not installed on that box (`ubus call l2-info snapshot`
+returned `Not found`), so this decision does **not** claim package-level x86
+compatibility.
+
+The reader therefore no longer promotes an AF_BRIDGE master reference into
+bridge identity. If AF_BRIDGE names a master which the generic dump did not
+identify as a bridge, the link read is declared inconsistent/unavailable rather
+than guessed through. A bridge identified generically remains a bridge even if
+it has zero members or is omitted by the AF_BRIDGE view; that is the structural
+fix R4 required. A live empty-bridge capture is still required before claiming
+that edge case verified on hardware.
+
+*Cost:* one extra generic link dump per user-triggered snapshot. It is
+software-only and negligible beside the FDB hardware walk. No reader-api or
+snapshot-format change.
+
 ---
 
 ## Superseded
@@ -793,4 +828,5 @@ hardware.
 | H3 binding every hint | D39 | Only causal hints can name two causes |
 | FDB entities keyed on the MAC alone | D40 | One MAC on several ports is several observations |
 | Bridges detected as masterless devices | D41 | A bridge can be its own master |
+| Bridge identity inferred from AF_BRIDGE master references | D46 | Generic link kind identifies the bridge; AF_BRIDGE reports membership |
 | Scope counts as documentation only | D42 | Implemented; they are P4's positive evidence |
