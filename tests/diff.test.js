@@ -94,7 +94,20 @@ a = snap([]); b = snap([]); b.scope.fdb.status = 'unavailable';
 assert('collection status change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-status' && x.collection === 'fdb'));
 
 a = snap([]); b = snap([]); b.scope.fdb.note = 'extra: unavailable';
-assert('collection coverage note blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-coverage' && x.collection === 'fdb'));
+assert('relevant collection coverage note blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-coverage' && x.collection === 'fdb'));
+
+a = snap([]); b = snap([]); b.scope.names.note = 'rtnl: read /tmp/dhcp.leases';
+assert('names coverage does not block fdb diff', mod.scopeCompatible(a, b).length === 0);
+
+a = snap([], {
+	rtnl: { status: 'ok', api: 1, provides: [ 'fdb' ] },
+	names: { status: 'unavailable', api: 1, provides: [ 'names' ], reason: 'missing' }
+});
+b = snap([], {
+	rtnl: { status: 'ok', api: 1, provides: [ 'fdb' ] },
+	names: { status: 'ok', api: 1, provides: [ 'names' ] }
+});
+assert('names-only reader change does not block fdb diff', mod.scopeCompatible(a, b).length === 0);
 
 a = snap([], {
 	rtnl: { status: 'ok', api: 1, provides: [ 'fdb' ] },
@@ -104,6 +117,6 @@ b = snap([], {
 	rtnl: { status: 'ok', api: 1, provides: [ 'fdb' ] },
 	extra: { status: 'unavailable', api: 1, provides: [ 'fdb' ], reason: 'failed' }
 });
-assert('reader coverage change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'reader-coverage'));
+assert('relevant reader coverage change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'reader-coverage'));
 
 process.exit(failures ? 1 : 0);
