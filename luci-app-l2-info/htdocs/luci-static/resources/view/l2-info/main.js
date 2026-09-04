@@ -141,6 +141,44 @@ function fmtDisputed(e) {
 	});
 }
 
+function fmtStatus(status) {
+	if (status == 'ok')
+		return _('available');
+	if (status == 'unavailable')
+		return _('unavailable');
+	if (status == 'not_applicable')
+		return _('not applicable');
+	if (status == 'indeterminate')
+		return _('indeterminate');
+	if (status == 'skipped')
+		return _('skipped');
+
+	return status || _('unreported');
+}
+
+function fmtCollection(name) {
+	var labels = {
+		bridges: _('Bridges'),
+		ports: _('Ports'),
+		fdb: _('Forwarding database'),
+		neighbours: _('Neighbours'),
+		names: _('Names')
+	};
+
+	return labels[name] || name;
+}
+
+function fmtScopeStatus(st) {
+	var parts = [ fmtStatus(st.status) ];
+
+	if (st.reason)
+		parts.push(st.reason);
+	if (st.note)
+		parts.push(st.note);
+
+	return parts.join(' — ');
+}
+
 function renderQueryErrors(errors) {
 	if (!errors.length)
 		return el('div', {});
@@ -252,7 +290,7 @@ function renderScope(snap) {
 	[ 'bridges', 'ports', 'fdb', 'neighbours', 'names' ].forEach(function(c) {
 		var st = snap.scope[c] || {};
 
-		rows.push([ c, st.status + (st.reason ? ' — ' + st.reason : '') ]);
+		rows.push([ fmtCollection(c), fmtScopeStatus(st) ]);
 	});
 
 	Object.keys(snap.scope.readers || {}).forEach(function(id) {
@@ -260,8 +298,7 @@ function renderScope(snap) {
 
 		rows.push([
 			_('Reader %s').format(id),
-			r.status + (r.reason ? ' — ' + r.reason : '') +
-				(r.describe ? ' (' + r.describe + ')' : '')
+			fmtScopeStatus(r) + (r.describe ? ' (' + r.describe + ')' : '')
 		]);
 	});
 
@@ -273,10 +310,10 @@ function fmtScopeDifference(d) {
 		return _('snapshot format/version');
 
 	if (d.kind == 'collection-status')
-		return _('%s status (%s → %s)').format(d.collection, d.before, d.after);
+		return _('%s status (%s → %s)').format(fmtCollection(d.collection), fmtStatus(d.before), fmtStatus(d.after));
 
 	if (d.kind == 'collection-coverage')
-		return _('%s coverage details').format(d.collection);
+		return _('%s coverage details').format(fmtCollection(d.collection));
 
 	if (d.kind == 'reader-coverage')
 		return _('reader coverage');
@@ -354,20 +391,26 @@ return view.extend({
 		 * changes when the user presses Update and at no other time, and P6
 		 * requires that its age be visible while it sits there. */
 		function tick() {
-			if (!S.current) {
+			if (!S.current)
 				dom.content(age, _('never'));
-				return;
+			else {
+				var secs = Math.max(0, Math.round((Date.now() - S.currentAt) / 1000));
+				var when = (secs < 60) ? _('%d s ago').format(secs)
+					: (secs < 3600) ? _('%d min ago').format(Math.round(secs / 60))
+					: _('%d h ago').format(Math.round(secs / 3600));
+
+				dom.content(age, [ S.current.captured_at, ' (', when, ')' ]);
 			}
 
-			var secs = Math.max(0, Math.round((Date.now() - S.currentAt) / 1000));
-			var when = (secs < 60) ? _('%d s ago').format(secs)
-				: (secs < 3600) ? _('%d min ago').format(Math.round(secs / 60))
-				: _('%d h ago').format(Math.round(secs / 3600));
-
-			dom.content(age, [ S.current.captured_at, ' (', when, ')' ]);
+			/* One timeout may fire after navigation; it sees the detached age
+			 * node and stops. No interval survives a discarded view. */
+			if (age.isConnected)
+				window.setTimeout(tick, 1000);
 		}
 
-		window.setInterval(tick, 1000);
+		/* render() returns before the node is attached, so start one tick
+		 * later; subsequent scheduling is conditional on DOM attachment. */
+		window.setTimeout(tick, 1000);
 
 		function readQuery() {
 			S.query = {
