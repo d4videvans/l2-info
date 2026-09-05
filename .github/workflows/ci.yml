@@ -1,0 +1,110 @@
+---
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit and fixture tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: latest
+
+      - name: Install ucode build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git libjson-c-dev pkg-config
+
+      - name: Build host ucode
+        run: |
+          git clone --depth=1 https://github.com/jow-/ucode.git /tmp/ucode
+          cmake -S /tmp/ucode -B /tmp/ucode-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DFS_SUPPORT=ON \
+            -DUBUS_SUPPORT=OFF \
+            -DUCI_SUPPORT=OFF \
+            -DULOOP_SUPPORT=OFF \
+            -DRTNL_SUPPORT=OFF \
+            -DNL80211_SUPPORT=OFF \
+            -DRESOLV_SUPPORT=OFF
+          cmake --build /tmp/ucode-build --parallel
+          sudo cmake --install /tmp/ucode-build
+          ucode -V
+
+      - name: Validate fixture JSON
+        run: |
+          find fixtures -type f -name '*.json' -print0 \
+            | xargs -0 -n1 python3 -m json.tool >/dev/null
+
+      - name: Run complete test suite
+        run: sh tests/run.sh
+
+  luci-eslint:
+    name: LuCI JavaScript and JSON lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: latest
+
+      - name: Install current LuCI ESLint stack
+        run: |
+          npm install --no-audit --no-fund --save-dev \
+            eslint@9 \
+            @eslint/json@latest \
+            @eslint/js \
+            @eslint/markdown \
+            eslint-formatter-gha
+
+      - name: Run ESLint on LuCI sources
+        run: |
+          npx eslint \
+            luci-app-l2-info/htdocs/luci-static/resources/**/*.js \
+            luci-app-l2-info/root/usr/share/**/*.json \
+            tests/*.js
+
+  upstream-build:
+    name: OpenWrt/LuCI package build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build both intended upstream packages in official SDK
+        run: |
+          docker run --rm \
+            -v "$PWD:/workspace:ro" \
+            openwrt/sdk:x86_64-master \
+            bash -lc '
+              set -eux
+              [ -d scripts ] || ./setup.sh
+              ./scripts/feeds update packages luci
+
+              rm -rf package/l2-info
+              cp -a /workspace/l2-info package/l2-info
+
+              rm -rf feeds/luci/applications/luci-app-l2-info
+              cp -a /workspace/luci-app-l2-info feeds/luci/applications/luci-app-l2-info
+
+              ./scripts/feeds install -f l2-info luci-app-l2-info
+              make defconfig
+              make package/l2-info/compile V=s -j"$(nproc)"
+              make package/feeds/luci/luci-app-l2-info/compile V=s -j"$(nproc)"
+            '
