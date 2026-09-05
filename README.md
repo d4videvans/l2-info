@@ -100,14 +100,21 @@ same-MAC/same-port/same-VLAN pairs differed only in flags and merged to 127
 assembled observations. Those merged rows can carry `self` while remaining
 non-local, reinforcing D47's rule that `self` is not a locality test.
 
-The current ucode/mechanical suite has clean 30-group executions on the GS1920
-and GS1900 for the fixtures that existed at those points. The later Cudy copied
-checkout exposed malformed JSON in the newly-created RTL838x source fixture;
-the live router validation itself was healthy, and the fixture has since been
-corrected. A second minimal `filogic-router-link-shape` fixture was then added.
-Those two new source fixtures still need one successful current-branch ucode
-replay. Browser-side hint/export/query/diff unit tests remain skipped on targets
-without Node and are an R11 CI task.
+A Linksys SPNMX56 adds a `qualcommax/ipq50xx` case and exposed a different
+source defect: its AF_BRIDGE FDB walk emits large and unstable numbers of
+`00:00:00:00:00:00` placeholder rows, including VIDs not present in bridge VLAN
+membership. D49 rejects only that unusable FDB subject identity. In the post-fix
+validation, the production snapshot contained 121 FDB observations; the
+simultaneous `bridge -j fdb show` contained 1,422 rows, of which 1,301 were
+all-zero placeholders, and its remaining 121 non-zero `(MAC, port, VLAN)`
+identities matched the snapshot exactly. The bogus VIDs disappeared without
+losing any real identity. The same snapshot completed in 915 ms.
+
+The current ucode/mechanical suite has now run cleanly on the post-fix SPNMX56:
+**33 groups pass**, including `null-empty-dump`, `empty-bridge-local`, the
+RTL838x and Filogic link-shape fixtures, and `zero-fdb-placeholder`. Browser-side
+hint/export/query/diff unit tests are still skipped on targets without Node and
+remain an R11 CI task.
 
 `sh tests/run.sh` discovers and replays fixtures across source, discovery and
 device seams and runs the mechanical checks that enforce the principles. With
