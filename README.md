@@ -73,38 +73,49 @@ removed (D47). The same sweep added bridge-device link addresses to the
 reported vocabulary so the device's own FDB observations can be recognised by
 an exact reported-value join, including for an empty bridge.
 
-D46 and D47 have since been cross-checked again on the real GS1920-24 v1.
-Generic RTM_GETLINK identifies its `switch` interface as
-`linkinfo.type == "bridge"` and supplies its link address; AF_BRIDGE exposes the
-same bridge self-mastered. With the current backend, `br.address` is present,
-matching FDB observations are marked local, and the removed provenance-split
-fields stay absent.
+D46 and D47 have since been cross-checked on several live platforms. On the
+GS1920-24 v1, generic RTM_GETLINK identifies `switch` directly as a bridge and
+supplies its link address while AF_BRIDGE exposes the same bridge self-mastered.
+The current backend reports `br.address`, marks matching FDB observations local,
+and keeps the removed provenance-split fields absent.
 
 A GS1900-8HP B1 adds a second Realtek generation (`rtl838x`, kernel 6.12.94).
 Its generic link view identifies `switch` directly as a bridge while DSA user
 ports identify as `type: "dsa"` even though their nested slave metadata also
-contains `type: "bridge"`; the VLAN child `switch.20` identifies as `type:
-"vlan"`. The production backend reports exactly one bridge and eight ports,
-keeps `switch.20` out of the bridge-port collection, recognises the switch's
-distinct per-port link addresses as local, and produced 141 raw FDB
-observations in 1.187 s. The simultaneous `bridge -j fdb show` cross-check also
-contained 141 rows. A minimal redacted `rtl838x-dsa-link-shape` source fixture
-pins the new link representation without copying the live forwarding table.
+contains `type: "bridge"`. An operator-configured management child `switch.20`
+identifies as `type: "vlan"`. The production backend reports exactly one bridge
+and eight ports, keeps `switch.20` out of the bridge-port collection, recognises
+the switch's distinct per-port link addresses as local, and produced 141 raw
+FDB observations in 1.187 s. The simultaneous `bridge -j fdb show` cross-check
+also contained 141 rows.
 
-The current ucode/mechanical suite has run on the GS1920 and on the GS1900
-checkout used for this validation: all 30 then-existing groups pass, including
-the `null-empty-dump` (D48) and `empty-bridge-local` (D47) regressions.
-Browser-side hint/export/query/diff unit tests are still skipped on targets
-without Node and remain a CI task. The newly-added RTL838x source fixture was
-created after the GS1900 run and still needs a subsequent suite execution.
+A Cudy WR3000P v1 adds a contemporary `mediatek/filogic` router case. Its
+`br-lan` bridge is directly identifiable, but some real bridge members (`wan`
+and Wi-Fi AP interfaces) have no useful top-level generic link kind and only
+nested `slave.type: "bridge"`; AF_BRIDGE still supplies membership correctly.
+VLAN children such as `br-lan.20` remain outside the port set. The live snapshot
+reported one bridge, eight ports, 130 raw FDB observations and 13 neighbours in
+233 ms with no conflicts. `bridge -j fdb show` also contained 130 rows; three
+same-MAC/same-port/same-VLAN pairs differed only in flags and merged to 127
+assembled observations. Those merged rows can carry `self` while remaining
+non-local, reinforcing D47's rule that `self` is not a locality test.
+
+The current ucode/mechanical suite has clean 30-group executions on the GS1920
+and GS1900 for the fixtures that existed at those points. The later Cudy copied
+checkout exposed malformed JSON in the newly-created RTL838x source fixture;
+the live router validation itself was healthy, and the fixture has since been
+corrected. A second minimal `filogic-router-link-shape` fixture was then added.
+Those two new source fixtures still need one successful current-branch ucode
+replay. Browser-side hint/export/query/diff unit tests remain skipped on targets
+without Node and are an R11 CI task.
 
 `sh tests/run.sh` discovers and replays fixtures across source, discovery and
 device seams and runs the mechanical checks that enforce the principles. With
 Node present it also directly tests hint, export, query/filter and diff/scope
 policy. What that proves is parsing, merging, scope declaration, derivation and
 the tested presentation policy. What it cannot prove is that any real driver
-behaves as its fixture claims, or what a snapshot costs on a switch — both need
-hardware (`docs/fixtures.md`, final section).
+behaves as its fixture claims, or what a snapshot costs on hardware — both need
+live validation (`docs/fixtures.md`, final section).
 
 Open decisions: D21 (a `capture` method for fixture contribution) and D22
 (panel layout).
