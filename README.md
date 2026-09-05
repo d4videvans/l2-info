@@ -59,32 +59,33 @@ is navigation, not a rival definition, and the owning document wins.
 
 ## Status
 
-Implemented, covered by fixtures, and run on real hardware: a GS1920-24 v1
-(rtl839x, kernel 6.18.44) assembled a full snapshot of 28 ports and 7 VLANs in
-1.34 s. That run exposed four defects — one in the merge (D40) and three in the
-reader (D41) — all fixed and pinned by fixtures verified to fail against the
-code that shipped them.
+Implemented, covered by fixtures, and run on real hardware. A GS1920-24 v1
+(rtl839x, kernel 6.18.44) assembles a full 28-port snapshot in about 1.3 s. Live
+validation on that switch exposed merge, reader, scope, hint and export defects
+(D40–D45), all of which are now represented in the design or fixtures.
 
-A second run cross-checked the reader against `bridge fdb show` and
-`bridge -j vlan show` on the same device, verifying the flag and VLAN-flag
-vocabularies and exposing one documented-but-unimplemented field (D42). A third
-confirmed the counts agree with iproute2 on the same device — 81 entries, 44
-reported by the switch hardware — and found one more dropped field (D43). The
-page itself has now been rendered on that switch, which found a hint firing on
-the device's own address (D44), and the first exported file carried a
-view-internal field (D45).
+A later x86/64 OpenWrt software-bridge sweep verified empty-bridge handling
+(D46) and deliberately challenged several assumptions that had looked
+reasonable from the switch captures alone. In particular, FDB row shape does
+**not** portably identify hardware versus software provenance; the development
+`entries_switch_reported` / `entries_bridge_reported` split was therefore
+removed (D47). The same sweep added bridge-device link addresses to the
+reported vocabulary so the device's own FDB observations can be recognised by
+an exact reported-value join, including for an empty bridge.
 
-The live switch now reports 28 ports, zero conflicts, and 83 forwarding entries
-split 45/38 between the switch hardware and the software bridge, merging to 55
-distinct observations.
+D46's bridge-identity mechanism has since been cross-checked again on the real
+GS1920-24 v1: generic RTM_GETLINK identifies its `switch` interface as
+`linkinfo.type == "bridge"`, while the AF_BRIDGE view exposes the same bridge
+self-mastered. This independently confirms the identity/membership split on
+rtl839x rather than only on a software bridge.
 
-`sh tests/run.sh` replays 18 fixtures across three seams and runs the mechanical
-checks that enforce the principles. With Node present it also directly tests
-hint, export, query/filter and diff/scope policy. What that proves is parsing,
-merging, scope declaration, derivation and the tested presentation policy. What
-it cannot prove is that any real driver behaves as its fixture claims, or what
-a snapshot costs on a switch — both need hardware (`docs/fixtures.md`, final
-section).
+`sh tests/run.sh` discovers and replays fixtures across source, discovery and
+device seams and runs the mechanical checks that enforce the principles. With
+Node present it also directly tests hint, export, query/filter and diff/scope
+policy. What that proves is parsing, merging, scope declaration, derivation and
+the tested presentation policy. What it cannot prove is that any real driver
+behaves as its fixture claims, or what a snapshot costs on a switch — both need
+hardware (`docs/fixtures.md`, final section).
 
 Open decisions: D21 (a `capture` method for fixture contribution) and D22
 (panel layout).
@@ -96,7 +97,10 @@ Open decisions: D21 (a `capture` method for fixture contribution) and D22
 apk add rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
 # or: opkg install rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
 
-# backend
+# backend, when the repository checkout is already on the target
+sh tools/install-dev-backend.sh
+
+# alternatively copy the backend from another machine
 scp l2-info/files/usr/share/rpcd/ucode/l2-info      root@dev:/usr/share/rpcd/ucode/
 scp l2-info/files/usr/share/l2-info/assemble.uc     root@dev:/usr/share/l2-info/
 scp l2-info/files/usr/share/l2-info/readers/rtnl.uc root@dev:/usr/share/l2-info/readers/
@@ -112,6 +116,11 @@ scp luci-app-l2-info/root/usr/share/rpcd/acl.d/*.json   root@dev:/usr/share/rpcd
 ssh root@dev '/etc/init.d/rpcd restart; rm -f /tmp/luci-indexcache*'
 ssh root@dev 'time ubus call l2-info snapshot'
 ```
+
+`tools/install-dev-backend.sh` is a development helper, not a package-manager
+replacement. It copies the backend files from the current checkout, reloads
+rpcd and verifies that the ubus object re-registers; it does not trigger a
+snapshot automatically.
 
 ## Relation to bearings
 
