@@ -33,6 +33,10 @@ D15 redaction has been applied (see docs/fixtures.md in the source checkout).
 
 The collection script is read-only. It does not change interface, bridge, VLAN
 or forwarding state.
+
+Git is not required on the target. source-hashes.txt and installed-hashes.txt
+record the exact copied and installed backend file contents when sha256sum is
+available, so a copied/archive checkout still has reproducible code provenance.
 EOF
 
 record() {
@@ -62,10 +66,38 @@ capture() {
 	return "$rc"
 }
 
+hash_if_present() {
+	out=$1
+	shift
+	: >"$out"
+	for f in "$@"; do
+		if [ -f "$f" ]; then
+			sha256sum "$f" >>"$out"
+		fi
+	done
+}
+
 printf 'l2-info validation capture\n' >"$OUT/meta.txt"
 printf 'captured_utc=%s\n' "$STAMP" >>"$OUT/meta.txt"
 printf 'checkout_root=%s\n' "$ROOT" >>"$OUT/meta.txt"
 printf 'git_required=no\n' >>"$OUT/meta.txt"
+
+if command -v sha256sum >/dev/null 2>&1; then
+	hash_if_present "$OUT/source-hashes.txt" \
+		"$ROOT/l2-info/files/usr/share/rpcd/ucode/l2-info" \
+		"$ROOT/l2-info/files/usr/share/l2-info/assemble.uc" \
+		"$ROOT/l2-info/files/usr/share/l2-info/readers/rtnl.uc" \
+		"$ROOT/tools/probe-rtnl-links.uc" \
+		"$ROOT/tools/collect-validation.sh" \
+		"$ROOT/tests/run.sh"
+
+	hash_if_present "$OUT/installed-hashes.txt" \
+		/usr/share/rpcd/ucode/l2-info \
+		/usr/share/l2-info/assemble.uc \
+		/usr/share/l2-info/readers/rtnl.uc
+else
+	printf 'SKIP source/installed hashes (sha256sum not found)\n' >>"$STATUS"
+fi
 
 if command -v ubus >/dev/null 2>&1; then
 	capture board.json ubus call system board || true
