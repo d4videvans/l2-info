@@ -33,8 +33,8 @@ function el(tag, attrs, children) {
 }
 
 function table(headings, rows, placeholder) {
-	var t = el('table', { 'class': 'table' }, [
-		el('tr', { 'class': 'tr table-titles' }, headings.map(function(h) {
+	var t = el('table', { 'class': 'table cbi-section-table' }, [
+		el('tr', { 'class': 'tr cbi-section-table-titles' }, headings.map(function(h) {
 			return el('th', { 'class': 'th' }, h);
 		}))
 	]);
@@ -179,6 +179,39 @@ function fmtScopeStatus(st) {
 	return parts.join(' — ');
 }
 
+function coverageProblems(snap) {
+	return [ 'bridges', 'ports', 'fdb', 'neighbours', 'names' ].filter(function(c) {
+		var st = snap.scope[c] || {};
+		return st.status != 'ok' && st.status != 'not_applicable';
+	});
+}
+
+function renderSnapshotSummary(snap) {
+	var d = snap.device || {};
+	var fdbScope = snap.scope.fdb || {};
+	var problems = coverageProblems(snap);
+	var conflicts = (snap.scope.conflicts || []).length;
+	var coverage = problems.length
+		? el('span', { 'class': 'label warning' },
+			_('%d data areas need attention').format(problems.length))
+		: el('span', { 'class': 'label success' }, _('All requested data available'));
+	var raw = (fdbScope.count != null) ? fdbScope.count : (snap.fdb || []).length;
+
+	var rows = [
+		[ _('Device'), d.model || d.board || _('unreported') ],
+		[ _('Topology'), _('%d bridges, %d ports').format((snap.bridges || []).length, (snap.ports || []).length) ],
+		[ _('Forwarding entries'), _('%d assembled, %d raw').format((snap.fdb || []).length, raw) ],
+		[ _('Neighbours'), String((snap.neighbours || []).length) ],
+		[ _('Read time'), _('%d ms').format(snap.duration_ms || 0) ],
+		[ _('Coverage'), coverage ]
+	];
+
+	if (conflicts)
+		rows.push([ _('Conflicts'), el('span', { 'class': 'label warning' }, String(conflicts)) ]);
+
+	return table([ _('Snapshot summary'), _('Value') ], rows, _('Nothing reported.'));
+}
+
 function renderQueryErrors(errors) {
 	if (!errors.length)
 		return el('div', {});
@@ -203,7 +236,7 @@ function renderHints(list) {
 
 	return el('div', {}, list.map(function(h) {
 		return el('div', {
-			'class': (h.kind == 'likely') ? 'cbi-value-description' : 'cbi-value-description',
+			'class': 'cbi-value-description',
 			'data-hint': h.id
 		}, [ (h.kind == 'likely') ? el('strong', {}, _('Likely: ')) : '', h.text ]);
 	}));
@@ -324,7 +357,7 @@ function fmtScopeDifference(d) {
 function renderDiff() {
 	if (!S.previous)
 		return el('div', {}, el('em', {},
-			_('Press Update again to compare two snapshots.')));
+			_('Take another snapshot to compare changes.')));
 
 	var differ = compare.scopeCompatible(S.current, S.previous);
 
@@ -370,13 +403,16 @@ return view.extend({
 	render: function() {
 		var self = this;
 
-		var age = el('span', {}, _('never'));
-		var resultsBox = el('div', {}, el('em', {}, _('No snapshot yet.')));
+		var age = el('span', {}, _('not taken'));
+		var summaryBox = el('div', {}, el('em', {}, _('Take a snapshot to begin.')));
+		var resultsBox = el('div', {});
 		var portsBox = el('div', {});
 		var scopeBox = el('div', {});
 		var diffBox = el('div', {});
 		var hintsBox = el('div', {});
 		var queryNotice = el('div', {});
+		var contentBox;
+		var detailsBox;
 
 		var inPort = el('select', { 'class': 'cbi-input-select' },
 			el('option', { 'value': '' }, _('any port')));
@@ -392,7 +428,7 @@ return view.extend({
 		 * requires that its age be visible while it sits there. */
 		function updateAge() {
 			if (!S.current) {
-				dom.content(age, _('never'));
+				dom.content(age, _('not taken'));
 				return;
 			}
 
@@ -442,12 +478,23 @@ return view.extend({
 			})));
 		}
 
+		function resetQuery() {
+			inPort.value = '';
+			inVlan.value = '';
+			inMac.value = '';
+			inAll.checked = false;
+			redrawQuery();
+		}
+
 		function redrawAll() {
 			var snap = S.current;
 
+			dom.content(summaryBox, renderSnapshotSummary(snap));
 			dom.content(portsBox, renderPorts(snap));
 			dom.content(scopeBox, renderScope(snap));
 			dom.content(diffBox, renderDiff());
+			contentBox.style.display = '';
+			detailsBox.open = coverageProblems(snap).length > 0 || (snap.scope.conflicts || []).length > 0;
 
 			/* Forwarding entries can name interfaces that are not bridge
 			 * ports and so have no port row — a conduit interface and its
@@ -528,45 +575,30 @@ return view.extend({
 			]);
 		}
 
-		return el('div', {}, [
-			el('h2', {}, _('MAC & VLAN Lookup')),
-			el('div', { 'class': 'cbi-map-descr' },
-				_('Reads this device\'s forwarding database once, then answers questions from that snapshot. Nothing is stored and nothing is polled.')),
+		detailsBox = el('details', { 'class': 'cbi-section' }, [
+			el('summary', {}, el('strong', {}, _('Device and data-source details'))),
+			el('div', { 'style': 'margin-top:1em' }, scopeBox)
+		]);
 
+		contentBox = el('div', { 'style': 'display:none' }, [
 			el('div', { 'class': 'cbi-section' }, [
-				el('div', { 'class': 'cbi-value' }, [
-					el('label', { 'class': 'cbi-value-title' }, _('Snapshot')),
-					el('div', { 'class': 'cbi-value-field' }, [
-						el('button', {
-							'class': 'cbi-button cbi-button-action important',
-							'click': ui.createHandlerFn(self, update)
-						}, _('Update')),
-						' ',
-						el('button', {
-							'class': 'cbi-button',
-							'click': function() {
-								if (S.current)
-									download(S.current);
-								else
-									ui.addNotification(null, el('p', {}, _('Take a snapshot first.')));
-							}
-						}, _('Download JSON')),
-						' ', age
-					])
-				])
-			]),
-
-			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Query')),
+				el('h3', {}, _('Filter snapshot')),
+				el('div', { 'class': 'cbi-section-descr' },
+					_('These filters use the current snapshot and do not read the hardware again.')),
 				field(_('Port'), inPort),
 				field(_('VLAN'), inVlan),
 				field(_('MAC'), inMac),
 				field(_('Include multicast and protocol addresses'), inAll),
+				el('div', { 'class': 'cbi-value' }, [
+					el('div', { 'class': 'cbi-value-title' }),
+					el('div', { 'class': 'cbi-value-field' },
+						el('button', { 'class': 'cbi-button', 'click': resetQuery }, _('Reset filters')))
+				]),
 				queryNotice
 			]),
 
 			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Addresses')),
+				el('h3', {}, _('Matching addresses')),
 				resultsBox,
 				hintsBox
 			]),
@@ -581,10 +613,43 @@ return view.extend({
 				diffBox
 			]),
 
+			detailsBox
+		]);
+
+		return el('div', {}, [
+			el('h2', {}, _('MAC & VLAN Lookup')),
+			el('div', { 'class': 'cbi-map-descr' },
+				_('Take one read-only snapshot of this device\'s live Layer 2 state, then filter and compare it without polling the hardware. Nothing is stored.')),
+
 			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('This device, and what it could see')),
-				scopeBox
-			])
+				el('h3', {}, _('Snapshot')),
+				el('div', { 'class': 'cbi-value' }, [
+					el('label', { 'class': 'cbi-value-title' }, _('Actions')),
+					el('div', { 'class': 'cbi-value-field' }, [
+						el('button', {
+							'class': 'cbi-button cbi-button-action important',
+							'click': ui.createHandlerFn(self, update)
+						}, _('Update snapshot')),
+						' ',
+						el('button', {
+							'class': 'cbi-button',
+							'click': function() {
+								if (S.current)
+									download(S.current);
+								else
+									ui.addNotification(null, el('p', {}, _('Take a snapshot first.')));
+							}
+						}, _('Download JSON'))
+					])
+				]),
+				el('div', { 'class': 'cbi-value' }, [
+					el('label', { 'class': 'cbi-value-title' }, _('Last snapshot')),
+					el('div', { 'class': 'cbi-value-field' }, age)
+				]),
+				summaryBox
+			]),
+
+			contentBox
 		]);
 	},
 
