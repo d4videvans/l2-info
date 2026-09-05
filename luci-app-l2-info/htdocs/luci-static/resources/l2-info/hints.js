@@ -181,7 +181,7 @@ return baseclass.extend({
 				if (!dup)
 					return null;
 
-				return _('%d address(es) are listed twice on the same port, once reported by the switch hardware without a VLAN and once by the bridge with one. Either the hardware table holds those entries with no VLAN id, or the driver does not report the id when the table is read.').format(dup);
+				return _('%d address observation(s) are listed more than once on the same port with different forwarding-table details. They are kept separate because l2-info does not use an inferred native VLAN to decide that two kernel observations are the same entry.').format(dup);
 			}
 		},
 		{
