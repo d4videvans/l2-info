@@ -186,27 +186,48 @@ function coverageProblems(snap) {
 	});
 }
 
+function fmtTopology(snap) {
+	var nb = (snap.bridges || []).length;
+	var np = (snap.ports || []).length;
+
+	if (nb == 1 && np == 1)
+		return _('1 bridge, 1 port');
+	if (nb == 1)
+		return _('1 bridge, %d ports').format(np);
+	if (np == 1)
+		return _('%d bridges, 1 port').format(nb);
+
+	return _('%d bridges, %d ports').format(nb, np);
+}
+
 function renderSnapshotSummary(snap) {
 	var d = snap.device || {};
 	var problems = coverageProblems(snap);
 	var conflicts = (snap.scope.conflicts || []).length;
-	var coverage = problems.length
+	var quality = problems.length
 		? el('span', { 'class': 'label warning' },
 			_('%d data areas need attention').format(problems.length))
-		: el('span', { 'class': 'label success' }, _('Snapshot data available'));
-
-	var rows = [
-		[ _('Device'), d.model || d.board || _('unreported') ],
-		[ _('Topology'), _('%d bridges, %d ports').format((snap.bridges || []).length, (snap.ports || []).length) ],
-		[ _('Addresses'), _('%d forwarding observations').format((snap.fdb || []).length) ],
-		[ _('Read time'), _('%d ms').format(snap.duration_ms || 0) ],
-		[ _('Data quality'), coverage ]
+		: el('span', { 'class': 'label success' }, _('Complete'));
+	var parts = [
+		d.model || d.board || _('unreported'),
+		fmtTopology(snap),
+		_('%d forwarding observations').format((snap.fdb || []).length),
+		_('%d ms').format(snap.duration_ms || 0),
+		quality
 	];
 
 	if (conflicts)
-		rows.push([ _('Conflicts'), el('span', { 'class': 'label warning' }, String(conflicts)) ]);
+		parts.push(el('span', { 'class': 'label warning' },
+			_('%d conflicts').format(conflicts)));
 
-	return table([ _('Snapshot'), _('Value') ], rows, _('Nothing reported.'));
+	var out = [];
+	parts.forEach(function(p, i) {
+		if (i)
+			out.push(' · ');
+		out.push(p);
+	});
+
+	return el('div', { 'class': 'cbi-value-description' }, out);
 }
 
 function renderQueryErrors(errors) {
@@ -268,30 +289,47 @@ function renderResults(snap, rows) {
 }
 
 function renderPorts(snap) {
-	var body = (snap.ports || []).map(function(p) {
+	var ports = snap.ports || [];
+	var showCarrier = ports.some(function(p) {
+		return p.attrs['topo.carrier'] === true || p.attrs['topo.carrier'] === false;
+	});
+	var headings = [ _('Port'), _('Bridge') ];
+
+	if (showCarrier)
+		headings.push(_('Link'));
+
+	headings = headings.concat([ _('VLANs'), _('MACs'), _('VLANs seen') ]);
+
+	var body = ports.map(function(p) {
 		var vlans = p.attrs['topo.vlans'] || [];
 		var pvid = p.attrs['topo.vlan_pvid'];
 		var untagged = p.attrs['topo.vlan_untagged'] || [];
-
-		return [
+		var row = [
 			p.subject.port,
-			p.attrs['topo.bridge'] || el('em', {}, '–'),
-			(p.attrs['topo.carrier'] === true) ? _('up')
-				: (p.attrs['topo.carrier'] === false) ? _('down') : el('em', {}, '–'),
+			p.attrs['topo.bridge'] || el('em', {}, '–')
+		];
+
+		if (showCarrier) {
+			row.push((p.attrs['topo.carrier'] === true) ? _('up')
+				: (p.attrs['topo.carrier'] === false) ? _('down') : el('em', {}, '–'));
+		}
+
+		row.push(
 			vlans.length ? vlans.map(function(v) {
 				return String(v) + (v == pvid ? '*' : '') + (untagged.indexOf(v) >= 0 ? 'u' : 't');
 			}).join(' ') : el('em', {}, '–'),
 			String(p.derived.mac_count),
 			(p.derived.vlans_observed || []).join(' ') || el('em', {}, '–')
-		];
+		);
+
+		return row;
 	});
 
 	return el('div', {}, [
-		table([ _('Port'), _('Bridge'), _('Link'), _('VLANs'), _('MACs'), _('VLANs seen') ],
-		      body, _('No ports reported.')),
+		table(headings, body, _('No ports reported.')),
 		el('div', { 'class': 'cbi-value-description' },
 			_('u = untagged, t = tagged, * = native VLAN. Read from the kernel, not from configuration.')),
-		el('div', {}, (snap.ports || []).map(fmtDisputed).filter(Boolean))
+		el('div', {}, ports.map(fmtDisputed).filter(Boolean))
 	]);
 }
 
@@ -367,7 +405,6 @@ function renderDiff() {
 				.format(differ.map(fmtScopeDifference).join(', ')));
 
 	var d = compare.diff(S.current, S.previous);
-
 	var rows = d.moved.map(function(m) {
 		return [
 			el('code', {}, m.mac),
@@ -385,11 +422,16 @@ function renderDiff() {
 		return [ el('code', {}, r.subject.mac), _('gone'), r.attrs['fdb.port'], '' ];
 	}));
 
+	var note = el('div', { 'class': 'cbi-value-description' },
+		_('Comparing %s with %s. "Moved" is inferred only when one remote unicast address leaves exactly one port and appears on exactly one other port.')
+			.format(S.previous.captured_at, S.current.captured_at));
+
+	if (!rows.length)
+		return el('div', {}, [ el('em', {}, _('No forwarding changes.')), note ]);
+
 	return el('div', {}, [
 		table([ _('MAC'), _('Change'), _('Port'), _('Note') ], rows, _('Nothing changed.')),
-		el('div', { 'class': 'cbi-value-description' },
-			_('Comparing %s with %s. "Moved" is inferred only when one remote unicast address leaves exactly one port and appears on exactly one other port.')
-				.format(S.previous.captured_at, S.current.captured_at))
+		note
 	]);
 }
 
@@ -568,12 +610,17 @@ return view.extend({
 			i.addEventListener('change', redrawQuery);
 		});
 
-		function field(label, input) {
-			return el('div', { 'class': 'cbi-value' }, [
-				el('label', { 'class': 'cbi-value-title' }, label),
-				el('div', { 'class': 'cbi-value-field' }, input)
-			]);
-		}
+		var filterTable = table(
+			[ _('Port'), _('VLAN'), _('MAC'), _('Multicast / protocol'), _('Actions') ],
+			[[
+				inPort,
+				inVlan,
+				inMac,
+				el('label', {}, [ inAll, ' ', _('show') ]),
+				el('button', { 'class': 'cbi-button', 'click': resetQuery }, _('Reset'))
+			]],
+			_('No filters available.')
+		);
 
 		detailsBox = el('details', { 'class': 'cbi-section' }, [
 			el('summary', {}, el('strong', {}, _('Device and data-source details'))),
@@ -585,15 +632,7 @@ return view.extend({
 				el('h3', {}, _('Find addresses')),
 				el('div', { 'class': 'cbi-section-descr' },
 					_('Filter the current snapshot by any combination of port, VLAN or MAC address. This does not read the hardware again.')),
-				field(_('Port'), inPort),
-				field(_('VLAN'), inVlan),
-				field(_('MAC'), inMac),
-				field(_('Show multicast and protocol addresses'), inAll),
-				el('div', { 'class': 'cbi-value' }, [
-					el('div', { 'class': 'cbi-value-title' }),
-					el('div', { 'class': 'cbi-value-field' },
-						el('button', { 'class': 'cbi-button', 'click': resetQuery }, _('Reset')))
-				]),
+				filterTable,
 				queryNotice
 			]),
 
