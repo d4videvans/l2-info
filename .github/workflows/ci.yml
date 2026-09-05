@@ -64,13 +64,13 @@ jobs:
         with:
           node-version: latest
 
-      - name: Install current LuCI ESLint stack
+      - name: Install current LuCI ESLint 9 stack
         run: |
           npm install --no-audit --no-fund --save-dev \
             eslint@9 \
-            @eslint/json@latest \
-            @eslint/js \
-            @eslint/markdown \
+            @eslint/json@0 \
+            @eslint/js@9 \
+            @eslint/markdown@6 \
             eslint-formatter-gha
 
       - name: Run ESLint on LuCI sources
