@@ -2,7 +2,7 @@
 
 **Status:** active work plan following the September 2026 architecture and
 OpenWrt/LuCI review, refined after implementation review and live hardware
-validation.
+validation. The planned hardware portability sweep is now complete.
 
 The aim is not to make `l2-info` more ambitious. It is to make the existing
 narrow design more truthful, portable and straightforward to review upstream.
@@ -128,30 +128,38 @@ confirms the same split on a Qualcomm router: `br-lan` alone has the direct
 bridge kind; DSA and Wi-Fi members are supplied by AF_BRIDGE; and the six
 `br-lan.<vid>` VLAN children remain outside the nine-port bridge topology.
 
-### R5 — Preserve valid partial observations (P1, evidence-gated)
+The Linksys EA8300 (`ipq40xx/generic`, kernel 6.12.94) independently confirms
+the same model on an older Qualcomm DSA platform: `br-lan` alone identifies
+directly as a bridge; DSA ports identify as `type: "dsa"` with nested bridge
+slave metadata; Wi-Fi members can carry only nested bridge slave metadata; and
+VLAN children remain outside the eleven-port bridge topology.
+
+### R5 — Preserve valid partial observations (P1) — deferred after hardware sweep
 
 **Problem.** A collection-level non-`ok` status currently forbids all rows for
-that collection. One unreadable `vlan_filtering` attribute can therefore
+that collection. One unreadable `vlan_filtering` attribute could therefore
 discard bridge identities which were read successfully. D47 also means that
 losing a bridge row can lose a reported `br.address` used by `derived.local`.
 
-This is real but needs a schema decision rather than a quick refactor. Do not
-move it ahead of hardware validation merely because it is easy to describe.
-
-**Evidence so far.** The x86 sweep, GS1920, GS1900, Cudy and Linksys SPNMX56
-captures have not produced a real partial-attribute case: whenever the reader
-was usable, the live collections in question were wholly `ok`. The first
-GS1900 attempt did show a missing runtime dependency, but that correctly made
-the rtnl collections unavailable as a whole and is not partial entity evidence.
-
-**Decision work required.** The leading model remains to retain successfully
-read entity evidence while attaching explicit coverage evidence naming the
-subject, attribute and failure reason. Simply omitting the unreadable attribute
+This is a coherent hypothetical failure mode, but changing it requires a schema
+decision rather than a quick refactor. Simply omitting an unreadable attribute
 would reintroduce P1's ambiguity and is not acceptable.
 
-**Work.** Keep this evidence-gated through the remaining router sweep. If no
-real case appears, defer the schema expansion rather than adding complexity for
-a hypothetical failure mode.
+**Evidence.** The completed sweep covered x86 software bridging, rtl839x,
+rtl838x, Mediatek Filogic, Qualcomm ipq50xx and older Qualcomm ipq40xx. None
+produced a real partial-attribute case: whenever the rtnl reader was usable, the
+live collections in question were wholly `ok`. The first GS1900 attempt showed
+a missing runtime dependency, but that correctly made the rtnl collections
+unavailable as a whole and was not partial entity evidence.
+
+**Decision.** Defer the schema expansion. The leading model remains to retain
+successfully read entity evidence while attaching explicit coverage evidence
+naming the subject, attribute and failure reason, but do not implement that
+complexity without a real source demonstrating the need.
+
+**Condition to reopen.** A captured device/source where valid entity evidence
+and a failed attribute read coexist in the same collection. At that point add a
+decision record before changing snapshot semantics and fixtures.
 
 ### R6 — No-bridge FDB special case (P1) — rejected by hardware evidence
 
@@ -195,8 +203,9 @@ correction, not precedent for changing a released v1 in place.
 absent. On the Cudy, three remote client observations were each reported twice
 with the same MAC/port/VLAN identity but differing flags; D40 merged each pair
 and unioned the flags, including `self`, while `derived.local` remained false.
-That is direct live evidence that `self` is neither a locality nor a portable
-provenance test.
+The EA8300 independently produced 34 such duplicate pairs: all merged with
+`self` present and none was local. These are direct live evidence that `self`
+is neither a locality nor a portable provenance test.
 
 ### R6b — Bridge/device own MAC and `derived.local` (P1) — done; multi-platform hardware-verified
 
@@ -346,9 +355,10 @@ The Cudy copied checkout exposed why this matters: its live production
 validation succeeded, but the then-new RTL838x source fixture contained malformed
 JSON and made `tests/run.sh` fail. The fixture was corrected. The subsequent
 SPNMX56 checkout executed both newly-added link-shape fixtures successfully,
-and the post-R6d SPNMX56 run executed `zero-fdb-placeholder` as well: the current
-ucode/mechanical suite now passes **33 groups** on a physical OpenWrt target.
-Node tests remain skipped on targets without Node and must be mandatory in CI.
+and the post-R6d SPNMX56 run executed `zero-fdb-placeholder` as well. The EA8300
+then repeated the current suite result: **33 ucode/mechanical groups pass** on
+an independent physical OpenWrt target. Node tests remain skipped on targets
+without Node and must be mandatory in CI.
 
 Until full CI/build jobs exist, do not describe repository tests as proving feed
 integration.
@@ -361,8 +371,8 @@ brought up to date in `547f97a`.
 
 ## Hardware validation matrix
 
-The available devices give useful diversity rather than merely more samples of
-one switch.
+The planned devices provide useful diversity rather than merely more samples of
+one switch, and the sweep is now complete for the current portability questions.
 
 | Device | State | Primary purpose / evidence |
 |---|---|---|
@@ -371,7 +381,7 @@ one switch.
 | Zyxel GS1900-8HP B1 | **rtl838x validation complete for current questions** | one bridge/eight ports; distinct per-port addresses; nested DSA slave bridge metadata does not create false bridges; operator management VLAN child stays outside port set; 141 raw FDB rows matched `bridge` exactly; 1.187 s; no R5 case |
 | Cudy WR3000P v1 | **Filogic/router validation complete for current questions** | one bridge/eight mixed wired/Wi-Fi ports; members without top-level generic kind still discovered via AF_BRIDGE; VLAN children excluded; 130 raw FDB rows matched `bridge`, three flag-only duplicate pairs merged to 127; 233 ms; no R5 case |
 | Linksys SPNMX56 | **qualcommax/ipq50xx validation complete for current questions** | one bridge/nine ports; D46 link/membership split correct; exposed unstable all-zero qca8k FDB placeholders; D49 source filter live-verified with exact 121/121 non-zero identity match; post-fix snapshot 915 ms; current 33-group ucode/mechanical suite passed; no R5 case |
-| Linksys EA8300 | pending | older router/DSA compatibility |
+| Linksys EA8300 | **ipq40xx validation complete for current questions** | one bridge/eleven mixed wired/Wi-Fi ports; older Qualcomm DSA representation fits existing D46 model; VLAN children excluded; 175 raw FDB rows matched `bridge` exactly and collapsed to the same 141 unique identities; 34 flag-only duplicate pairs merged correctly; 396 ms; current 33-group suite passed; no R5 case |
 
 For each device, record:
 
@@ -390,19 +400,17 @@ Raw captures must follow D15 redaction before being committed as fixtures.
 
 ## Suggested execution order
 
-1. R1–R4, R6a–R6d, R7–R9 and R12 — implemented and live-regressed across x86,
-   two Realtek switch generations, Filogic and qualcommax.
-2. EA8300 as the remaining older router/DSA case.
-3. Revisit R5 after the remaining router case; implement it only if real
-   partial-attribute evidence appears.
-4. R10 packaging/POT work and R11 CI/build integration.
-5. Final current-master OpenWrt/LuCI review before upstream PRs.
+1. R1–R4, R6a–R6d, R7–R9 and R12 — implemented and live-regressed across the
+   completed hardware sweep.
+2. R5 — deferred; reopen only on real partial-attribute evidence.
+3. R10 packaging/POT work and R11 CI/build integration.
+4. Final current-master OpenWrt/LuCI review before upstream PRs.
 
-The plan is deliberately evidence-led. The x86 sweep invalidated several
-plausible-looking assumptions, the two Realtek devices then validated the
-corrected mechanisms across different switch generations, the Cudy added a
-router topology in which not every bridge member has a useful top-level generic
-link kind, and the Linksys exposed and then live-regressed a driver-specific
-FDB placeholder pattern without requiring a device-specific data path. Preserve
-the same discipline for the remaining portability work rather than filling gaps
-by inference.
+The plan remains evidence-led. The x86 sweep invalidated several
+plausible-looking assumptions; two Realtek generations validated the corrected
+switch mechanisms; Filogic and two Qualcomm generations exercised mixed
+router/DSA/Wi-Fi topologies; and the SPNMX56 exposed and then live-regressed a
+driver-specific FDB placeholder pattern without requiring a device-specific
+data path. The final EA8300 case added no new source shape and no partial-data
+failure, which is itself the evidence for deferring R5 rather than implementing
+schema complexity speculatively.
