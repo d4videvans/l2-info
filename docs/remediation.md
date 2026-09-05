@@ -100,7 +100,9 @@ empty `l2probe0` bridge was reported by the production backend as one bridge
 with zero ports and `derived.port_count: 0`. The same fixture/source suite
 passed on that OpenWrt runtime (28 groups; browser-side Node tests skipped
 because Node was not installed). A populated software bridge and a
-VLAN-filtering software bridge also report one bridge/one port correctly.
+VLAN-filtering software bridge also report one bridge/one port correctly. With
+VLAN filtering enabled and VLAN 10 added, the production snapshot carried both
+VLAN 1 and VLAN 10 through `topo.vlans` and `derived.vlans_observed`.
 
 **Remaining regression check.** Run the generic-link probe on the GS1920-24 v1
 to replace the synthetic D46 companion row in its source fixture with live
@@ -147,15 +149,19 @@ with no switch ASIC involved, produced many `self` FDB rows with no
 `fdb.bridge`. The current scope calculation calls these
 `entries_switch_reported` and treats a non-zero count as positive evidence of a
 hardware table. That inference is false: the VLAN-filtered software bridge
-reported 13 such rows and 3 rows in the complementary bucket.
+reported 13 such rows and 3 rows in the complementary bucket; after adding
+VLAN 10, it reported 13 and 5.
 
-The underlying structural distinction is still observable and potentially
-useful. The defect is the provenance claim and the field names that encode it.
-Before upstreaming, record a decision on whether to:
+The same assumption had leaked into the `duplicate_reports` presentation hint.
+Commit `a7bdc76` removes the hardware/bridge provenance claim from that hint and
+keeps only the observable fact that several kernel FDB observations exist for
+the same address/port.
 
-1. rename the two scope fields to neutral structural names and update format
-   versioning as required; or
-2. remove the split entirely if no consumer needs it.
+The underlying structural distinction is still observable, but no demonstrated
+consumer needs it. The leading resolution is therefore to remove the two split
+scope fields rather than rename an implementation-shaped distinction into the
+public contract. Record that as a decision and update the format/tests before
+making the change.
 
 Do not infer hardware/software origin solely from `NTF_SELF`/master shape.
 Fixtures must include a pure software bridge case that would fail any such
@@ -167,12 +173,37 @@ The empty software bridge exposed its own unicast FDB address on `l2probe0`, but
 `derived.local` was false because D44 currently joins only against
 `topo.address` values from port rows. An empty bridge has no port row. Once
 `eth0` was attached, the member interface's own MAC was correctly marked local,
-so the existing join works for members; the gap is bridge-device addresses.
+including its VLAN 1 and VLAN 10 FDB observations, so the existing join works
+for members; the gap is bridge-device addresses.
 
 Do not fix this by declaring every address on a bridge device local. Capture
 the generic link address for bridge devices first and decide whether bridge
 rows should report their own MAC as an attribute, then let `local` remain a
 reported-value join.
+
+### R6c — Successful zero-row rtnetlink dumps return null (P0/P1) — code fixed; regression pending on new fixture
+
+**Finding.** On the populated x86 software bridge, the neighbour collection was
+once reported `unavailable` with `netlink dump returned no result and no error`.
+Inspection of current `ucode-mod-rtnl` confirmed the representation: for a
+multipart dump, the result array is allocated only when a valid row arrives. A
+successful dump with zero rows therefore returns `null` while `nl.error()`
+remains clear. The old wrapper treated that successful-empty representation as
+failure, violating D18/P1.
+
+**Fix.** Commit `2e55c7a` normalises `rows == null` with no rtnl error to an
+empty array. A real rtnl error remains `unavailable`. Collection semantics then
+apply normally: an empty neighbour read is `ok`; an empty FDB read remains
+`indeterminate` under P4. Commits `eb6c61f`, `b723db9`, `93ad20b` and `f7aefd3`
+extend source replay and add a `null-empty-dump` fixture.
+
+**Live regression.** The production fix was applied manually to the older
+v2-branch ZIP on x86/64 OpenWrt 25.12.5 and all 28 existing ucode/mechanical
+groups passed. Node tests were skipped because Node is absent. This proves the
+reader change does not regress those existing groups; it does **not** claim the
+new `null-empty-dump` fixture passed on the VM, because that fixture is not in
+the offline ZIP. Run the updated branch's fixture suite in an environment that
+contains the new fixture before closing the regression-test part of this item.
 
 ## Phase 3 — LuCI and API integration
 
@@ -225,7 +256,7 @@ LuCI (`openwrt/luci`):
 CI should make currently optional checks mandatory and distinguish unit logic
 from upstream integration:
 
-1. ucode source/discovery/device fixture suite;
+1. ucode source/discovery/device fixture suite, including `null-empty-dump`;
 2. Node hint/export/filter/diff/scope tests;
 3. shell/static checks;
 4. backend package build against a pinned/current OpenWrt tree;
@@ -247,7 +278,7 @@ one switch.
 
 | Device | State | Primary purpose / evidence |
 |---|---|---|
-| x86 OpenWrt 25.12.5 / 6.12.94 | **active, R4 verified** | no-bridge, empty bridge, populated bridge, VLAN-filtering bridge; exposed R6 and provenance assumptions |
+| x86 OpenWrt 25.12.5 / 6.12.94 | **R4 verified; software bridge sweep substantially complete** | no-bridge, empty bridge, populated bridge, VLAN-filtering and VLAN-10 bridge; exposed R6, provenance and null-empty assumptions |
 | Zyxel GS1920-24 v1 | baseline captured; D46 generic-link recheck pending | rtl839x regression, FDB duplication and scan cost |
 | Zyxel GS1900-8 | pending | second Realtek switch case: bridge/FDB representation, VLAN flags, hardware dump behaviour, timing |
 | Cudy WR3000P v1 | pending | contemporary router/DSA case |
@@ -272,15 +303,17 @@ Raw captures must follow D15 redaction before being committed as fixtures.
 
 1. R1–R4, R7–R9 and R12 — implemented; R4 live-x86 verified.
 2. Resolve R6a's false hardware/software provenance claim before relying on the
-   current scope split anywhere else.
+   current scope split anywhere else; leading option is to remove the split.
 3. Capture bridge-device link addresses needed to decide R6b without guessing.
-4. Re-probe GS1920 generic RTM_GETLINK to live-verify D46 on rtl839x.
-5. GS1900-8 and router hardware sweep.
-6. Revisit R5 only if captured hardware produces a real partial-attribute case.
-7. R10 packaging/POT work and R11 CI/build integration.
-8. Final current-master OpenWrt/LuCI review before upstream PRs.
+4. Run the updated `null-empty-dump` source fixture in a current-branch ucode
+   environment; the production fix already passes the older 28-group VM suite.
+5. Re-probe GS1920 generic RTM_GETLINK to live-verify D46 on rtl839x.
+6. GS1900-8 and router hardware sweep.
+7. Revisit R5 only if captured hardware produces a real partial-attribute case.
+8. R10 packaging/POT work and R11 CI/build integration.
+9. Final current-master OpenWrt/LuCI review before upstream PRs.
 
 The plan is deliberately evidence-led. The x86 sweep both verified R4 and
-invalidated two plausible-looking assumptions; that is a reason to preserve the
-same discipline for the remaining portability work rather than filling gaps by
-inference.
+invalidated several plausible-looking assumptions; that is a reason to preserve
+the same discipline for the remaining portability work rather than filling gaps
+by inference.
