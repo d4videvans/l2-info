@@ -1,0 +1,39 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges":    { "status": "ok" },
+    "ports":      { "status": "ok" },
+    "fdb":        { "status": "indeterminate" },
+    "neighbours": { "status": "ok" },
+    "names":      { "status": "ok", "note": "read /etc/ethers; no address to name mappings in them" }
+  },
+  "row_counts": { "bridges": 1, "ports": 2, "fdb": 0, "neighbours": 0, "names": 0 },
+  "rows": [
+    { "subject": { "bridge": "switch" }, "collection": "bridges",
+      "attrs": { "br.name": "switch", "br.address": "02:38:00:00:00:01", "br.vlan_filtering": true } },
+
+    { "subject": { "bridge": "lan1" }, "absent_row": true },
+    { "subject": { "bridge": "lan2" }, "absent_row": true },
+    { "subject": { "bridge": "switch.20" }, "absent_row": true },
+
+    { "subject": { "port": "switch" }, "absent_row": true },
+    { "subject": { "port": "switch.20" }, "absent_row": true },
+
+    { "subject": { "port": "lan1" }, "collection": "ports",
+      "attrs": {
+        "topo.bridge": "switch",
+        "topo.address": "02:38:00:00:00:01",
+        "topo.vlans": [1, 12, 20],
+        "topo.vlan_pvid": 12,
+        "topo.vlan_untagged": [12]
+      } },
+    { "subject": { "port": "lan2" }, "collection": "ports",
+      "attrs": {
+        "topo.bridge": "switch",
+        "topo.address": "02:38:00:00:00:02",
+        "topo.vlans": [12],
+        "topo.vlan_pvid": 12,
+        "topo.vlan_untagged": [12]
+      } }
+  ]
+}
