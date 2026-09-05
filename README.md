@@ -98,29 +98,23 @@ Open decisions: D21 (a `capture` method for fixture contribution) and D22
 
 ## Trying it
 
+Git is **not required on a target OpenWrt device**. A normal development flow is
+to download or extract the desired repository branch on another machine, copy
+the resulting directory to the device (for example to `/tmp/l2-info` with
+WinSCP), and run the helper scripts from that copied checkout.
+
 ```sh
 # dependencies
 apk add rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
 # or: opkg install rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
 
-# backend, when the repository checkout is already on the target
+cd /tmp/l2-info
+
+# install/update the backend from this copied checkout
 sh tools/install-dev-backend.sh
 
-# alternatively copy the backend from another machine
-scp l2-info/files/usr/share/rpcd/ucode/l2-info      root@dev:/usr/share/rpcd/ucode/
-scp l2-info/files/usr/share/l2-info/assemble.uc     root@dev:/usr/share/l2-info/
-scp l2-info/files/usr/share/l2-info/readers/rtnl.uc root@dev:/usr/share/l2-info/readers/
-
-# view
-scp luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js \
-    root@dev:/www/luci-static/resources/view/l2-info/
-scp luci-app-l2-info/htdocs/luci-static/resources/l2-info/*.js \
-    root@dev:/www/luci-static/resources/l2-info/
-scp luci-app-l2-info/root/usr/share/luci/menu.d/*.json  root@dev:/usr/share/luci/menu.d/
-scp luci-app-l2-info/root/usr/share/rpcd/acl.d/*.json   root@dev:/usr/share/rpcd/acl.d/
-
-ssh root@dev '/etc/init.d/rpcd restart; rm -f /tmp/luci-indexcache*'
-ssh root@dev 'time ubus call l2-info snapshot'
+# take one read-only hardware-validation bundle, including the fixture suite
+sh tools/collect-validation.sh
 ```
 
 `tools/install-dev-backend.sh` is a development helper, not a package-manager
@@ -128,6 +122,23 @@ replacement. It installs/reloads the core before replacing the dynamically
 loaded reader, avoiding a transient new-reader/old-assembler contract mismatch;
 it then verifies that the ubus object re-registers. It does not trigger a
 snapshot automatically.
+
+`tools/collect-validation.sh` creates a timestamped directory under `/tmp` by
+default. It records board metadata, one production snapshot, the safe rtnetlink
+link probe, optional `bridge -j` cross-checks when `ip-bridge` is installed, and
+the fixture/mechanical test output. It requires no git, Node or jq. When
+`sha256sum` is available it also records hashes of both the copied source files
+and the installed backend, so an archive/WinSCP workflow still has exact code
+provenance. Copy the resulting directory off the device with WinSCP for
+analysis.
+
+Validation bundles are deliberately raw evidence and may contain MAC addresses,
+IP addresses and host names. They are suitable for private analysis but must not
+be committed as fixtures until D15 redaction has been applied.
+
+For development from another Unix-like machine, the individual backend/view
+files can still be copied with `scp`; the copied-checkout workflow above is the
+preferred path when validating several physical devices.
 
 ## Relation to bearings
 
