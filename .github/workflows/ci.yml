@@ -49,7 +49,7 @@ jobs:
           cmake --build /tmp/ucode-build --parallel
           sudo cmake --install /tmp/ucode-build
           sudo ldconfig
-          ucode -V
+          test "$(ucode -e 'print(\"ok\")')" = ok
 
       - name: Validate fixture JSON
         run: |
