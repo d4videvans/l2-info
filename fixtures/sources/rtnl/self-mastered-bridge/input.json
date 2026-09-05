@@ -1,7 +1,7 @@
 {
   "link_generic": {
     "rows": [
-      { "ifname": "switch", "linkinfo": { "type": "bridge" } }
+      { "ifname": "switch", "address": "02:8b:f3:fc:bb:75", "linkinfo": { "type": "bridge" } }
     ]
   },
   "link_bridge": {
