@@ -18,6 +18,14 @@ The live generic RTM_GETLINK dump showed three facts worth pinning:
 3. The VLAN child `switch.20` identifies as `linkinfo.type: "vlan"` and is not
    a bridge or bridge port. AF_BRIDGE supplies the actual bridge-port set.
 
+`switch.20` is **operator configuration on the captured device**, not claimed
+as a GS1900 default or driver-created management interface. VLAN 20 was
+intentionally configured as the management VLAN so the device management plane
+is reachable only through that VLAN. The fixture keeps this row because it is a
+useful real example of a VLAN child carrying FDB observations without becoming
+a bridge or bridge port; it does not generalise the existence or numbering of
+that interface to other GS1900 installations.
+
 The live device also reports distinct sequential link addresses on its eight
 DSA user ports, unlike the GS1920-24 v1 where every user port reports the same
 base address. The two synthetic addresses in this fixture preserve that
@@ -30,3 +38,9 @@ contained 137 observations because two sets of byte-for-byte duplicate raw FDB
 rows collapsed during merge. The distinct per-port device addresses were
 recognised as local, and FDB observations on `switch.20` did not cause it to be
 reported as a bridge port.
+
+A permanent `self` FDB entry was also observed on `switch.20`. Given the
+management-interface role above, that row is not treated as evidence of a
+control protocol merely from its address/OUI; it remains reported according to
+its kernel attributes unless an independent source establishes a stronger
+meaning.
