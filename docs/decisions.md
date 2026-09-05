@@ -870,6 +870,36 @@ The production change also passed the older 28-group OpenWrt fixture/mechanical
 suite on x86; the new fixture still needs to be run from a current branch
 checkout rather than the older offline ZIP used for that regression check.
 
+## D49 — An all-zero link-layer address is not an FDB subject identity — settled
+
+Live validation on a Linksys SPNMX56 (`qualcommax/ipq50xx`, kernel 6.12.94)
+showed the AF_BRIDGE FDB dump emitting large, unstable numbers of rows whose
+link-layer address was `00:00:00:00:00:00`. The first capture contained hundreds
+of them; a cross-check shortly afterwards contained 1,303 such rows. They were
+reported on `lan1`/`lan2`/`lan3` with VIDs 68/67/66 even though those VIDs were
+not members of those ports. The count changed between reads while the complete
+set of non-zero `(MAC, port, VLAN)` identities stayed stable.
+
+An all-zero address cannot identify an FDB subject. Treating it as one invented
+one giant synthetic MAC and, worse, allowed placeholder VIDs to leak into
+`derived.vlans_observed`. The rtnl reader therefore discards only FDB rows whose
+normalised lladdr is all zero at the source boundary, just as neighbour handling
+already rejects all-zero unresolved addresses. No VLAN, port, flag or driver
+name is filtered: an otherwise identical row with a real non-zero address is
+reported normally.
+
+`fixtures/sources/rtnl/zero-fdb-placeholder` pins both sides of the rule: repeated
+all-zero FDB rows disappear, while a non-zero row on the same port and VLAN
+survives.
+
+The post-fix live regression is conclusive. The production snapshot contained
+121 raw FDB observations and no all-zero subject. The simultaneous
+`bridge -j fdb show` contained 1,422 rows, of which 1,301 were all-zero
+placeholders; the remaining 121 non-zero `(MAC, port, VLAN)` identities matched
+the production snapshot exactly one-for-one. The bogus VIDs 66/67/68
+therefore disappeared without losing any real FDB identity. The current suite
+also passed all 33 ucode/mechanical groups including the new fixture.
+
 ---
 
 ## Superseded
