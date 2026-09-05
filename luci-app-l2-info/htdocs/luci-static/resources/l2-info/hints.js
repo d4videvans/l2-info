@@ -63,7 +63,7 @@ return baseclass.extend({
 		},
 		{
 			id: 'no_vlan_filtering',
-			kind: 'likely',
+			kind: 'note',
 			test: function(s) {
 				var off = (s.bridges || []).filter(function(b) {
 					return b.attrs['br.vlan_filtering'] === false;
@@ -72,7 +72,7 @@ return baseclass.extend({
 				if (!off.length || off.length != (s.bridges || []).length)
 					return null;
 
-				return _('No bridge on this device has VLAN filtering enabled, so the VLAN columns are empty because there are no VLANs to report. Either this device is not doing 802.1Q at all, or tagging happens at the interface layer with one bridge per VLAN — in which case the VLAN is in the interface name rather than in the forwarding table.');
+				return _('No bridge on this device has VLAN filtering enabled. Bridge VLAN filtering is therefore not providing VLAN separation here. Values marked native come from the port PVID rather than a VLAN reported by the forwarding entry; 802.1Q tagging may still be handled at the interface layer, for example with VLAN interfaces and separate bridges.');
 			}
 		},
 		{
