@@ -49,7 +49,7 @@ jobs:
           cmake --build /tmp/ucode-build --parallel
           sudo cmake --install /tmp/ucode-build
           sudo ldconfig
-          test "$(ucode -e 'print(\"ok\")')" = ok
+          test "$(ucode -e 'print("ok")')" = ok
 
       - name: Validate fixture JSON
         run: |
@@ -110,6 +110,7 @@ jobs:
 
               rm -rf feeds/luci/applications/luci-app-l2-info
               cp -a /workspace/luci-app-l2-info feeds/luci/applications/luci-app-l2-info
+              ./scripts/feeds update -i luci
 
               ./scripts/feeds install -f l2-info luci-app-l2-info
               make defconfig
