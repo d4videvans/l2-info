@@ -188,28 +188,25 @@ function coverageProblems(snap) {
 
 function renderSnapshotSummary(snap) {
 	var d = snap.device || {};
-	var fdbScope = snap.scope.fdb || {};
 	var problems = coverageProblems(snap);
 	var conflicts = (snap.scope.conflicts || []).length;
 	var coverage = problems.length
 		? el('span', { 'class': 'label warning' },
 			_('%d data areas need attention').format(problems.length))
-		: el('span', { 'class': 'label success' }, _('All requested data available'));
-	var raw = (fdbScope.count != null) ? fdbScope.count : (snap.fdb || []).length;
+		: el('span', { 'class': 'label success' }, _('Snapshot data available'));
 
 	var rows = [
 		[ _('Device'), d.model || d.board || _('unreported') ],
 		[ _('Topology'), _('%d bridges, %d ports').format((snap.bridges || []).length, (snap.ports || []).length) ],
-		[ _('Forwarding entries'), _('%d assembled, %d raw').format((snap.fdb || []).length, raw) ],
-		[ _('Neighbours'), String((snap.neighbours || []).length) ],
+		[ _('Addresses'), _('%d forwarding observations').format((snap.fdb || []).length) ],
 		[ _('Read time'), _('%d ms').format(snap.duration_ms || 0) ],
-		[ _('Coverage'), coverage ]
+		[ _('Data quality'), coverage ]
 	];
 
 	if (conflicts)
 		rows.push([ _('Conflicts'), el('span', { 'class': 'label warning' }, String(conflicts)) ]);
 
-	return table([ _('Snapshot summary'), _('Value') ], rows, _('Nothing reported.'));
+	return table([ _('Snapshot'), _('Value') ], rows, _('Nothing reported.'));
 }
 
 function renderQueryErrors(errors) {
@@ -290,7 +287,7 @@ function renderPorts(snap) {
 	});
 
 	return el('div', {}, [
-		table([ _('Port'), _('Bridge'), _('Link'), _('VLANs'), _('Addresses'), _('VLANs seen') ],
+		table([ _('Port'), _('Bridge'), _('Link'), _('VLANs'), _('MACs'), _('VLANs seen') ],
 		      body, _('No ports reported.')),
 		el('div', { 'class': 'cbi-value-description' },
 			_('u = untagged, t = tagged, * = native VLAN. Read from the kernel, not from configuration.')),
@@ -302,11 +299,14 @@ function renderPorts(snap) {
  * conclusions only where they follow from it (P4). */
 function renderScope(snap) {
 	var d = snap.device || {};
+	var fdbScope = snap.scope.fdb || {};
+	var raw = (fdbScope.count != null) ? fdbScope.count : (snap.fdb || []).length;
 
 	var rows = [
 		[ _('Model'), d.model || d.board || el('em', {}, _('unreported')) ],
 		[ _('Target'), d.target || el('em', {}, _('unreported')) ],
-		[ _('Kernel'), d.kernel || el('em', {}, _('unreported')) ]
+		[ _('Kernel'), d.kernel || el('em', {}, _('unreported')) ],
+		[ _('Forwarding observations'), _('%d assembled from %d raw rows').format((snap.fdb || []).length, raw) ]
 	];
 
 	(snap.bridges || []).forEach(function(b) {
@@ -582,17 +582,17 @@ return view.extend({
 
 		contentBox = el('div', { 'style': 'display:none' }, [
 			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Filter snapshot')),
+				el('h3', {}, _('Find addresses')),
 				el('div', { 'class': 'cbi-section-descr' },
-					_('These filters use the current snapshot and do not read the hardware again.')),
+					_('Filter the current snapshot by any combination of port, VLAN or MAC address. This does not read the hardware again.')),
 				field(_('Port'), inPort),
 				field(_('VLAN'), inVlan),
 				field(_('MAC'), inMac),
-				field(_('Include multicast and protocol addresses'), inAll),
+				field(_('Show multicast and protocol addresses'), inAll),
 				el('div', { 'class': 'cbi-value' }, [
 					el('div', { 'class': 'cbi-value-title' }),
 					el('div', { 'class': 'cbi-value-field' },
-						el('button', { 'class': 'cbi-button', 'click': resetQuery }, _('Reset filters')))
+						el('button', { 'class': 'cbi-button', 'click': resetQuery }, _('Reset')))
 				]),
 				queryNotice
 			]),
@@ -604,13 +604,13 @@ return view.extend({
 			]),
 
 			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Ports and VLANs')),
-				portsBox
+				el('h3', {}, _('Changes since the previous snapshot')),
+				diffBox
 			]),
 
 			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Changes since the previous snapshot')),
-				diffBox
+				el('h3', {}, _('Ports and VLANs')),
+				portsBox
 			]),
 
 			detailsBox
@@ -619,7 +619,7 @@ return view.extend({
 		return el('div', {}, [
 			el('h2', {}, _('MAC & VLAN Lookup')),
 			el('div', { 'class': 'cbi-map-descr' },
-				_('Take one read-only snapshot of this device\'s live Layer 2 state, then filter and compare it without polling the hardware. Nothing is stored.')),
+				_('Take one read-only snapshot of this device\'s live Layer 2 state, then search and compare it without polling the hardware. Nothing is stored.')),
 
 			el('div', { 'class': 'cbi-section' }, [
 				el('h3', {}, _('Snapshot')),
