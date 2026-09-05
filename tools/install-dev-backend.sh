@@ -26,6 +26,38 @@ done
 
 [ -x /etc/init.d/rpcd ] || fail "/etc/init.d/rpcd not found"
 command -v ubus >/dev/null 2>&1 || fail "ubus not found"
+command -v ucode >/dev/null 2>&1 || fail "ucode not found"
+
+# A package-manager install gets these through Package/l2-info DEPENDS. This
+# development helper bypasses dependency resolution, so fail before copying any
+# files if the target cannot load the modules the backend requires.
+MISSING_PACKAGES=""
+
+require_ucode_module() {
+	module=$1
+	package=$2
+
+	if ! ucode -e "require('$module')" >/dev/null 2>&1; then
+		case " $MISSING_PACKAGES " in
+			*" $package "*) ;;
+			*) MISSING_PACKAGES="${MISSING_PACKAGES}${MISSING_PACKAGES:+ }$package" ;;
+		esac
+	fi
+}
+
+require_ucode_module fs ucode-mod-fs
+require_ucode_module rtnl ucode-mod-rtnl
+require_ucode_module ubus ucode-mod-ubus
+
+if [ -n "$MISSING_PACKAGES" ]; then
+	if command -v apk >/dev/null 2>&1; then
+		fail "missing required runtime package(s): $MISSING_PACKAGES; install with: apk add $MISSING_PACKAGES"
+	elif command -v opkg >/dev/null 2>&1; then
+		fail "missing required runtime package(s): $MISSING_PACKAGES; install with: opkg install $MISSING_PACKAGES"
+	else
+		fail "missing required runtime package(s): $MISSING_PACKAGES"
+	fi
+fi
 
 mkdir -p /usr/share/rpcd/ucode /usr/share/l2-info/readers
 
