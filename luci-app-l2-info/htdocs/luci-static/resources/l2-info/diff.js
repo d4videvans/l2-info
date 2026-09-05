@@ -11,9 +11,11 @@
 'require baseclass';
 
 /* Only these collections can change diff identity or movement interpretation:
- * FDB rows directly, and port facts through PVID/local-address derivation.
- * Names and neighbours are annotations and must not make an FDB diff unusable. */
-var DIFF_COLLECTIONS = [ 'ports', 'fdb' ];
+ * FDB rows directly; port facts through PVID and local-address derivation; and
+ * bridge facts through br.address, which also participates in derived.local
+ * (D47). Names and neighbours are annotations and must not make an FDB diff
+ * unusable. */
+var DIFF_COLLECTIONS = [ 'bridges', 'ports', 'fdb' ];
 
 function observationKey(r) {
 	return [ r.subject.mac, r.attrs['fdb.port'], r.derived.vlan ].join('/');
