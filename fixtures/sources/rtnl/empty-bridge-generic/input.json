@@ -1,7 +1,7 @@
 {
   "link_generic": {
     "rows": [
-      { "ifname": "br-empty", "linkinfo": { "type": "bridge" } }
+      { "ifname": "br-empty", "address": "02:00:00:00:00:01", "linkinfo": { "type": "bridge" } }
     ]
   },
   "link_bridge": { "rows": [] },
