@@ -310,8 +310,8 @@ not.
 ## D22 — Menu placement and panel set — open
 
 Status is the right menu section. Undecided: whether the L2-facts panel
-(board, target, per-bridge filtering, entry provenance counts) is a section of
-the one page or a separate page, and how the query, results, diff and panel
+(board, target, per-bridge filtering, collection counts) is a section of the
+one page or a separate page, and how the query, results, diff and panel
 sections are ordered.
 
 Presentation detail generally is deliberately not specified in these documents
@@ -516,9 +516,9 @@ with three attributes registered: `topo.bridge`, `topo.carrier`,
 `topo.address`.
 
 The distinction matters because `derived.bridge` on an **FDB** row genuinely
-is a join — a DSA hardware entry carries no bridge, so it comes from the port
-— and if reported and joined values sit in the same place, the one honest
-inference in the format loses the company of the rule that isolates it.
+is a join when that row does not itself report a bridge — and if reported and
+joined values sit in the same place, the one honest inference in the format
+loses the company of the rule that isolates it.
 
 Registered at the same time, for the two collections that had no vocabulary:
 `br.name`, `br.vlan_filtering`, `neigh.ips`, `name.hostname`.
@@ -601,12 +601,11 @@ covered was one MAC twice on the *same* port — which is the coverage gap
 `fixtures/devices/mac-on-many-ports` closes. That fixture is verified to fail
 against the old merge key.
 
-The set-valued rule is the other half. On a DSA switch with assisted learning
-on the CPU port, one forwarding entry is reported twice for the same
-`(mac, port, vlan)`: once as `self` from the hardware table and once as
-`master` from the software bridge. Those are not two sources disagreeing about
-a flag, they are two reports of membership, and the honest value is the union —
-which also picks up the `fdb.bridge` that only the software row carries.
+The set-valued rule is the other half. The same forwarding observation can be
+reported more than once with complementary flags or bridge metadata. Those are
+not two sources disagreeing about a set-valued fact, and the honest value is
+the union. D47 explicitly prevents the merge machinery from assigning
+hardware/software provenance to those row shapes.
 
 Conflicts now mean what D27 says they mean: two *different* readers disagreeing
 about one observation.
@@ -642,11 +641,11 @@ glance from having looked nowhere. The reader now attaches a note listing the
 files it read. This is the boundary case of P1's "zero rows means zero rows":
 the status was right, and it still needed evidence attached.
 
-## D42 — Verified against iproute2; hardware entries carry no VLAN here — settled
+## D42 — GS1920 FDB cross-check — settled; provenance inference superseded by D47
 
 A cross-check on the live GS1920-24 v1, which happens to have `ip-bridge` and
 `lldpd` installed, against `bridge fdb show` and `bridge -j vlan show` on the
-same device at the same time. Three results.
+same device at the same time. Three useful observations remain.
 
 **D19 is largely verified rather than inferred.** The flag vocabulary
 synthesised from `bridge/fdb.c` matches what iproute2 prints for every token
@@ -663,43 +662,39 @@ So does `topo.vlan_flags`: iproute2's JSON gives `["PVID","Egress Untagged"]`
 and the space-joined text form is exactly what this format registers. Both were
 previously arguments from source reading.
 
-**The scope counts were documented and never implemented.** `docs/snapshot-format.md`
-specified `count`, `entries_switch_reported` and `entries_bridge_reported`; the
-assembler emitted a bare `{status: "ok"}`. The counts are the positive evidence
-P4 depends on, so their absence quietly removed the ability to tell a driver
-that reports its hardware table from one that does not — the exact question the
-field asks. Now computed over the rows as read, before merging, because they
-describe what the device said rather than what the assembler made of it.
+**The total scope count is useful; the old provenance split was not.** The
+format had documented `count`, `entries_switch_reported` and
+`entries_bridge_reported`; implementation then counted them over raw rows before
+merging. The GS1920 evidence motivated that split, but x86 software-only bridge
+validation later proved that `self` plus no master is not a portable hardware
+origin marker. D47 therefore removes the two split fields and retains only the
+raw pre-merge `count`.
 
-On the live device: 79 forwarding entries, 44 carrying `self`. That is positive
-evidence that this rtl839x build does report its hardware table.
-
-**The hardware entries carry no VLAN id, and the bridge entries do.** This is
-the reverse of the assumption the design was built on:
+**The two row forms on this GS1920 differ in VLAN reporting.** An access-port
+address appeared as:
 
 ```
 <mac> dev lan2 vlan 5 master switch
 <mac> dev lan2 self
 ```
 
-So an access-port host appears twice, and the two rows differ in `fdb.vlan`.
+The first row carries a VLAN id and master; the second does not. The device and
+driver context made distinct reporting paths worth investigating, but the row
+shape alone is no longer labelled hardware versus software.
 
 *Rejected: merging them on the resolved VLAN.* It is technically easy — resolve
 the PVID before merging rather than after — and it would collapse the pair into
 one entity with the flags unioned, which looks tidier. It is refused because it
 would make an **inference load-bearing for identity**: the two rows would be
-declared the same forwarding entry on the strength of a PVID guess. And the
-reason the hardware row lacks a VLAN is genuinely unknown — either the hardware
-table holds those entries with vid 0, or the driver does not populate the vid
-when the table is read. Merging would bake a guess about a driver into the
-data model.
+declared the same forwarding entry on the strength of a PVID guess. The reason
+one row lacks a VLAN is genuinely unknown; merging would bake a guess about a
+driver into the data model.
 
-So the duplication stays visible, and a `note`-kind hint names both
-explanations (P5). On a trunk port with no PVID the hardware row resolves to
-`null` and correctly stays there, which is the same behaviour with nothing to
-guess from.
+So the duplication stays visible. On a trunk port with no PVID the row lacking
+a VLAN resolves to `null` and correctly stays there, which is the same behaviour
+with nothing to guess from.
 
-This is also a question worth asking upstream of the realtek driver, which is a
+This remains a question worth asking upstream of the realtek driver, which is a
 better outcome than a tidier table.
 
 ## D43 — Reader notes reach the snapshot — settled
@@ -721,11 +716,12 @@ not. The general lesson is narrower than "assert more": an expectation should
 assert every field the fixture's input deliberately sets, because a field only
 gets into a fixture input on purpose.
 
-## D44 — The device's own address is a reported join, not a mystery host — settled
+## D44 — The device's own address is a reported join, not a mystery host — settled; extended by D47
 
-`derived.local` is true when an address equals a `topo.address` of one of this
-device's own ports. The two fan-out hints skip local addresses, and the view
-labels them "this device".
+`derived.local` is true when an address equals a reported link address belonging
+to this device. It was first implemented against `topo.address` on port rows;
+D47 extends the same join to `br.address` on bridge rows. The fan-out hints skip
+local addresses, and the view labels them "this device".
 
 Found in the first live render of the page. The switch installs its own address
 as a permanent entry on several ports and on every VLAN, so
@@ -735,14 +731,14 @@ to the switch itself**. A `likely` hint naming two or more causes still fails
 H3's purpose if every named cause is wrong; the rule stops a hint being a
 verdict, and does not stop it being irrelevant.
 
-The fix is a join, not a filter or a heuristic: the evidence was already in the
-snapshot, on every port row, and nothing was connecting it. That also improves
-the table for its own sake, since eight rows of the switch's own address
-labelled "unknown" is worse than the same rows labelled as the device.
+The fix remains a join, not a filter or a heuristic: the device's own addresses
+are reported facts and matching FDB observations are joined to them. D47 found
+the missing bridge half on an empty software bridge; it does not declare every
+FDB row on a bridge device local.
 
-`duplicate_reports` got the same exclusion, because per-VLAN local entries were
-being counted as hardware/bridge dual reports (D42) — the same root cause
-producing a second wrong number.
+`duplicate_reports` has the same local-address exclusion so a device's own
+per-VLAN observations do not look like a remote address duplicated behind a
+port.
 
 Recorded as a lesson about hint review: a `likely` hint needs its causes
 checked against the rows it will actually fire on, not only against the rows it
@@ -769,18 +765,18 @@ deliberately rather than arriving by default.
 attaches junk to the snapshot first to prove the allowlist is doing the work
 rather than the absence of junk.
 
-*Verified in the field at the same time:* the exported snapshot shows
+*Verified in the field at the same time:* the exported snapshot showed
 `conflicts: 0` (D40), `ports: 28` on a 28-port switch (D41), and
-`fdb.count: 83` with a 45/38 switch-versus-bridge split merging to 55
-observations. All three were defects in earlier builds and are now correct on
-hardware.
+`fdb.count: 83` raw observations merging to 55 FDB observations. The temporary
+hardware/bridge split displayed in that development build is superseded by D47.
 
-## D46 — Bridge identity comes from the generic link kind — settled
+## D46 — Bridge identity comes from the generic link kind — settled; x86 verified
 
 The `rtnl` reader uses **two RTM_GETLINK views for two different facts**:
 
 1. a generic RTM_GETLINK dump identifies bridge devices from their own
-   `linkinfo.type == "bridge"` (`IFLA_INFO_KIND`);
+   `linkinfo.type == "bridge"` (`IFLA_INFO_KIND`) and reports their link
+   address;
 2. an `AF_BRIDGE` RTM_GETLINK dump with the bridge-VLAN ext-mask supplies
    bridge-port membership and live VLAN membership.
 
@@ -789,26 +785,90 @@ references. That worked on populated bridges and was patched in D41 for the
 self-mastered form seen on the GS1920, but it still made bridge existence depend
 on membership. An empty bridge could therefore disappear entirely.
 
-A development probe on an **x86/64 OpenWrt 25.12.5** device (kernel 6.12.94)
-settled the source shape. Every software bridge in the generic dump exposed
-`linkinfo.type: "bridge"`; the same bridge devices in the AF_BRIDGE view exposed
-`linkinfo: null` and appeared self-mastered. `/sys/class/net/*/bridge` agreed
-with the generic link-kind set. This is evidence for the rtnetlink shape only:
-`l2-info` itself was not installed on that box (`ubus call l2-info snapshot`
-returned `Not found`), so this decision does **not** claim package-level x86
-compatibility.
+An **x86/64 OpenWrt 25.12.5** device (kernel 6.12.94) settled the source shape.
+Software bridges in the generic dump exposed `linkinfo.type: "bridge"`; the
+same bridge devices in the AF_BRIDGE view exposed `linkinfo: null` and could
+appear self-mastered. `/sys/class/net/*/bridge` agreed with the generic
+link-kind set.
 
-The reader therefore no longer promotes an AF_BRIDGE master reference into
-bridge identity. If AF_BRIDGE names a master which the generic dump did not
-identify as a bridge, the link read is declared inconsistent/unavailable rather
-than guessed through. A bridge identified generically remains a bridge even if
-it has zero members or is omitted by the AF_BRIDGE view; that is the structural
-fix R4 required. A live empty-bridge capture is still required before claiming
-that edge case verified on hardware.
+The production backend was then installed on that system and exercised with a
+deliberately empty `l2probe0` bridge. It reported one bridge, zero ports and
+`derived.port_count: 0`. The same bridge populated with `eth0`, with VLAN
+filtering enabled, and with VLAN 10 added continued to report one bridge/one
+port with the expected VLAN membership. R4 is therefore live-verified on x86,
+not merely structurally represented in a fixture.
+
+The reader no longer promotes an AF_BRIDGE master reference into bridge
+identity. If AF_BRIDGE names a master which the generic dump did not identify
+as a bridge, the link read is declared inconsistent/unavailable rather than
+guessed through. A bridge identified generically remains a bridge even if it
+has zero members or is omitted by the AF_BRIDGE view.
 
 *Cost:* one extra generic link dump per user-triggered snapshot. It is
-software-only and negligible beside the FDB hardware walk. No reader-api or
-snapshot-format change.
+software-only and negligible beside the FDB hardware walk.
+
+## D47 — FDB row shape is not provenance; bridge addresses complete the local join — settled
+
+The x86 validation that closed D46 disproved two plausible-looking assumptions
+at once.
+
+**First: `self` plus no master is not hardware provenance.** A pure software
+Linux bridge with no switch ASIC produced many FDB rows carrying `self` and no
+`fdb.bridge`. With one virtio member the development snapshot reported a 9/2
+`entries_switch_reported` / `entries_bridge_reported` split; with VLAN filtering
+and VLAN 10 it reported 13/5. Those numbers could not possibly mean hardware
+versus software origin on that system.
+
+Therefore `entries_switch_reported` and `entries_bridge_reported` are removed.
+`scope.fdb.count` remains and counts raw FDB observations before merging. The
+reader continues to report `fdb.flags` and `fdb.bridge` exactly as observed,
+but neither the core nor the view assigns hardware/software provenance from
+that shape. `fixtures/devices/dual-reported-entries` negatively asserts the old
+scope fields stay absent.
+
+**Second: bridge devices have their own reported addresses.** An empty
+`l2probe0` exposed its own unicast FDB observation, but D44 initially marked it
+non-local because the snapshot only collected `topo.address` from port rows and
+an empty bridge has no member row. After `eth0` was enslaved,
+`/sys/class/net/l2probe0/address` and `/sys/class/net/eth0/address` both reported
+`52:54:00:12:34:56`, and the existing port-address join then correctly marked
+the matching FDB rows local.
+
+The generic RTM_GETLINK dump already used by D46 reports the bridge link
+address. It is now registered as `br.address`, and `derived.local` joins against
+both `topo.address` and `br.address`. This adds no read and no heuristic: locality
+still requires a matching address reported about this device. An FDB row is not
+local merely because `fdb.port` names a bridge or because it carries `self`.
+`fixtures/sources/rtnl/empty-bridge-generic` pins the source fact and
+`fixtures/devices/empty-bridge-local` pins the derived join.
+
+**Format version remains 1 because this contract has not shipped.** Development
+drafts of v1 contained the now-disproved split fields, but there is no released
+or upstream v1 consumer to preserve. Correcting the pre-release contract before
+it ships is preferable to publishing a knowingly false v1 and immediately
+creating v2. Once v1 is released or treated as a stable external interface,
+removing/renaming fields or changing their meaning requires a format bump under
+`docs/snapshot-format.md`; this pre-release correction is not precedent for
+changing a released version in place.
+
+## D48 — `ucode-mod-rtnl` null plus no error is a successful empty dump — settled
+
+Live x86 testing found the neighbours collection occasionally reported
+`unavailable` with "netlink dump returned no result and no error". Inspection
+of `ucode-mod-rtnl` showed why: for a multipart request the result array is
+allocated only when a valid reply row arrives. A successful zero-row dump can
+therefore return `null` while `nl.error()` remains clear.
+
+D18's seam now interprets that pair correctly: error present means failure;
+`null` with no error normalises to an empty row array. Collection semantics then
+decide what empty means. Neighbours can be `ok` with zero rows; FDB remains
+`indeterminate` when one empty sample cannot distinguish true emptiness from an
+observation gap (P4).
+
+A `null-empty-dump` source fixture represents this source behaviour explicitly.
+The production change also passed the older 28-group OpenWrt fixture/mechanical
+suite on x86; the new fixture still needs to be run from a current branch
+checkout rather than the older offline ZIP used for that regression check.
 
 ---
 
@@ -829,4 +889,6 @@ snapshot-format change.
 | FDB entities keyed on the MAC alone | D40 | One MAC on several ports is several observations |
 | Bridges detected as masterless devices | D41 | A bridge can be its own master |
 | Bridge identity inferred from AF_BRIDGE master references | D46 | Generic link kind identifies the bridge; AF_BRIDGE reports membership |
-| Scope counts as documentation only | D42 | Implemented; they are P4's positive evidence |
+| Scope counts as documentation only | D42 | Raw collection counts were implemented; D47 later removes the invalid provenance split |
+| Hardware/software provenance inferred from `self`/master row shape | D47 | Row shape remains reported evidence only |
+| `derived.local` joined only to port `topo.address` | D47 | Bridge `br.address` participates in the same reported-value join |
