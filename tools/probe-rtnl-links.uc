@@ -26,7 +26,10 @@ const RTEXT_FILTER_BRVLAN_COMPRESSED = 0x04;
 let nl = require('rtnl');
 
 function macfmt(mac) {
-	let h = lc(replace(mac ?? '', /[^0-9A-Fa-f]/g, ''));
+	if (mac == null)
+		return null;
+
+	let h = lc(replace(trim(mac), /[^0-9A-Fa-f]/g, ''));
 
 	if (length(h) != 12)
 		return null;
