@@ -20,7 +20,7 @@ define Package/l2-info
   CATEGORY:=Network
   SUBMENU:=Routing and Redirection
   TITLE:=Layer 2 address, port and VLAN inspection
-  DEPENDS:=+rpcd +rpcd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-rtnl +ucode-mod-ubus
+  DEPENDS:=+rpcd-mod-ucode +ucode-mod-fs +ucode-mod-rtnl +ucode-mod-ubus
   PKGARCH:=all
 endef
 
