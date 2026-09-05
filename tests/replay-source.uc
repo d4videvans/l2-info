@@ -87,6 +87,12 @@ function make_stub(input) {
 			if (entry == null)
 				return [];
 
+			// ucode-mod-rtnl returns null, with nl.error() still null, when a
+			// multipart dump completes successfully without any valid rows.
+			// Fixtures need to represent that separately from an actual error.
+			if (entry.null_result)
+				return null;
+
 			if (entry.error != null) {
 				last_error = entry.error;
 				return null;
