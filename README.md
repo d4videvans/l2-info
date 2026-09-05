@@ -110,7 +110,21 @@ all-zero placeholders, and its remaining 121 non-zero `(MAC, port, VLAN)`
 identities matched the snapshot exactly. The bogus VIDs disappeared without
 losing any real identity. The same snapshot completed in 915 ms.
 
-The current ucode/mechanical suite has now run cleanly on the post-fix SPNMX56:
+A Linksys EA8300 adds an older `ipq40xx/generic` Qualcomm DSA case. Its
+`br-lan`/DSA/Wi-Fi/VLAN-child representation fits the same D46 model already
+covered by the newer router fixtures. The production snapshot reported one
+bridge, eleven ports, 175 raw FDB observations and 16 neighbours in 396 ms with
+no conflicts. `bridge -j fdb show` also contained 175 rows; those collapsed to
+141 unique `(MAC, port, reported-VLAN)` identities, exactly matching the 141
+assembled FDB observations. All 34 duplicate identity pairs differed only in
+reported flags, merged with `self` in the union, and remained non-local.
+
+The planned hardware portability sweep is now complete across x86 software
+bridging, two Realtek switch generations, Mediatek Filogic, Qualcomm ipq50xx and
+Qualcomm ipq40xx. No live target produced the partial-attribute case contemplated
+by R5, so that schema expansion is deferred until real evidence justifies it.
+
+The current ucode/mechanical suite has now run cleanly on both Qualcomm targets:
 **33 groups pass**, including `null-empty-dump`, `empty-bridge-local`, the
 RTL838x and Filogic link-shape fixtures, and `zero-fdb-placeholder`. Browser-side
 hint/export/query/diff unit tests are still skipped on targets without Node and
