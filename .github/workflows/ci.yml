@@ -60,7 +60,7 @@ jobs:
         run: sh tests/run.sh
 
   luci-eslint:
-    name: Current LuCI lint
+    name: Current LuCI lint and i18n
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -70,6 +70,9 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: latest
+
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gettext
 
       - name: Stage app in current LuCI tree
         run: |
@@ -87,6 +90,19 @@ jobs:
           npx eslint \
             applications/luci-app-l2-info/htdocs/luci-static/resources/**/*.js \
             applications/luci-app-l2-info/root/usr/share/**/*.json
+
+      - name: Generate LuCI translation template
+        working-directory: /tmp/luci
+        run: |
+          ./build/i18n-scan.pl applications/luci-app-l2-info \
+            > /tmp/l2-info.pot
+          test -s /tmp/l2-info.pot
+
+      - name: Upload generated translation template
+        uses: actions/upload-artifact@v6
+        with:
+          name: l2-info-pot
+          path: /tmp/l2-info.pot
 
   upstream-build:
     name: OpenWrt/LuCI package build
