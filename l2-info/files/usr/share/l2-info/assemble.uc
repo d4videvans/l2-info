@@ -27,7 +27,7 @@ const STATUSES = [ 'ok', 'unavailable', 'not_applicable', 'indeterminate' ];
 const SUBJECT_KINDS = [ 'mac', 'port', 'bridge', 'self' ];
 
 const ATTRS = {
-	'br.name': true, 'br.vlan_filtering': true,
+	'br.name': true, 'br.vlan_filtering': true, 'br.address': true,
 	'topo.port': true, 'topo.bridge': true, 'topo.carrier': true,
 	'topo.address': true, 'topo.vlans': true, 'topo.vlan_flags': true,
 	'topo.vlan_pvid': true, 'topo.vlan_untagged': true,
@@ -45,11 +45,11 @@ const DISCRIMINATORS = {
 	fdb: [ 'fdb.port', 'fdb.vlan' ]
 };
 
-// Set-valued attributes accumulate across rows rather than conflicting. Two
-// rows reporting membership are not two sources disagreeing: the bridge FDB
-// reports one forwarding entry twice on a DSA switch with assisted learning on
-// the CPU port, once as `self` from the hardware table and once as `master`
-// from the software bridge, and the honest flag set is the union of both.
+// Set-valued attributes accumulate across rows rather than conflicting. The
+// kernel may report the same forwarding observation more than once with
+// complementary flags or bridge metadata; unioning the set-valued facts keeps
+// all reported evidence without assigning hardware/software provenance to row
+// shape (D40, D47).
 const SET_VALUED = {
 	'fdb.flags': true,
 	'neigh.ips': true
@@ -397,10 +397,9 @@ function rollup(states) {
 }
 
 // Counts are reported over the rows as read, before merging: they describe
-// what the device said, not what the assembler made of it. The switch/bridge
-// split is the positive evidence P4 needs - a non-zero switch count means this
-// device does report a hardware table. Zero is not evidence of the converse,
-// which is why there is no boolean here.
+// how many observations sources returned, not how many entities merging made
+// from them. Row shape is deliberately not interpreted as hardware/software
+// provenance (D47).
 function count_rows(all) {
 	let counts = {};
 
@@ -409,20 +408,6 @@ function count_rows(all) {
 
 		counts[coll] ??= { count: 0 };
 		counts[coll].count++;
-
-		if (coll != 'fdb')
-			continue;
-
-		let flags = item.row.attrs?.['fdb.flags'] ?? [];
-
-		if ('self' in flags && item.row.attrs?.['fdb.bridge'] == null) {
-			counts.fdb.entries_switch_reported ??= 0;
-			counts.fdb.entries_switch_reported++;
-		}
-		else {
-			counts.fdb.entries_bridge_reported ??= 0;
-			counts.fdb.entries_bridge_reported++;
-		}
 	}
 
 	return counts;
@@ -513,16 +498,24 @@ function derive(entities) {
 		if (e.collection == 'ports') {
 			ports[e.subject.port] = e;
 
-			// A switch installs its own address as a permanent entry on every
-			// port and every VLAN, so without this join it looks exactly like
-			// a host that has appeared everywhere at once.
+			// An interface address is positive evidence that matching FDB
+			// observations are this device's own, not a remote host (D44).
 			let a = e.attrs['topo.address'];
 
 			if (a != null)
 				own[a] = true;
 		}
-		else if (e.collection == 'bridges')
+		else if (e.collection == 'bridges') {
 			bridges[e.subject.bridge] = e;
+
+			// An empty bridge has no port row, so its own reported link address
+			// must participate in the same join. This is evidence from generic
+			// RTM_GETLINK, not a heuristic based on FDB row shape (D47).
+			let a = e.attrs['br.address'];
+
+			if (a != null)
+				own[a] = true;
+		}
 		else if (e.collection == 'neighbours')
 			ips[e.subject.mac] = e.attrs['neigh.ips'];
 		else if (e.collection == 'names')
