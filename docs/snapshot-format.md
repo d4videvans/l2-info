@@ -89,15 +89,12 @@ One entry per collection, keyed by the collection it describes.
 
 ```json
 "scope": {
-  "board":        { "status": "ok" },
-  "links":        { "status": "ok", "count": 26 },
-  "bridge_vlans": { "status": "ok", "bridges_filtering": 1, "bridges_total": 2 },
-  "fdb":          { "status": "ok", "count": 112,
-                    "entries_switch_reported": 87,
-                    "entries_bridge_reported": 25 },
-  "neighbours":   { "status": "ok", "count": 9 },
-  "names":        { "status": "unavailable",
-                    "reason": "/tmp/dhcp.leases and /etc/ethers both absent" }
+  "bridges":    { "status": "ok", "count": 1 },
+  "ports":      { "status": "ok", "count": 25 },
+  "fdb":        { "status": "ok", "count": 112 },
+  "neighbours": { "status": "ok", "count": 9 },
+  "names":      { "status": "unavailable",
+                  "reason": "/tmp/dhcp.leases and /etc/ethers both absent" }
 }
 ```
 
@@ -143,16 +140,13 @@ an inference.
 
 Notes that are contract, not commentary:
 
-- `entries_switch_reported` counts entries with `NTF_SELF` and no master;
-  `entries_bridge_reported` counts the rest. A non-zero switch count is
-  positive evidence that this device reports a hardware table. **Zero is not
-  evidence of the converse** (P4) — hence no boolean field here.
+- `count` is counted over rows as read, before merging, so it says how many
+  observations sources returned. FDB row shape is **not** interpreted as
+  hardware/software provenance; `self` plus no master occurs on ordinary
+  software bridges as well as on switch-oriented systems (D47).
 - `fdb.status` is `indeterminate` when the dump succeeded with zero rows, since
-  an idle switch and a driver without `port_fdb_dump` are indistinguishable
-  from one sample.
-- `bridge_vlans.status` is `not_applicable` when no bridge has VLAN filtering
-  enabled, with the reason naming that. It is never `ok` with an empty list,
-  because that would be an empty field with two possible meanings.
+  an idle switch and a driver that does not expose relevant forwarding entries
+  are indistinguishable from one sample.
 
 ## Bridge rows
 
@@ -162,22 +156,28 @@ all (D36).
 ```json
 {
   "subject": { "bridge": "br-lan" },
-  "attrs":   { "br.name": "br-lan", "br.vlan_filtering": true },
+  "attrs": {
+    "br.name": "br-lan",
+    "br.address": "02:00:00:00:00:01",
+    "br.vlan_filtering": true
+  },
   "derived": { "port_count": 25 },
   "source":  "rtnl"
 }
 ```
 
 `br.vlan_filtering` is read from the bridge's own state, never inferred from
-whether any VLAN ids happened to be seen (P4). Where it cannot be read, the
-`bridges` collection is `indeterminate` and carries no rows, rather than rows
-with the attribute silently missing.
+whether any VLAN ids happened to be seen (P4). `br.address`, when present, is
+the bridge device's own link address reported by the generic link dump. It is
+not inferred from a member port or from an FDB row (D47). Where VLAN filtering
+state cannot be read, the `bridges` collection is `indeterminate` and carries
+no rows, rather than rows with the attribute silently missing.
 
 ## Registered attributes
 
 | Namespace | Attributes |
 |---|---|
-| `br.*` | `name`, `vlan_filtering` |
+| `br.*` | `name`, `address`, `vlan_filtering` |
 | `topo.*` | `port`, `bridge`, `carrier`, `address`, `vlans`, `vlan_flags`, `vlan_pvid`, `vlan_untagged` |
 | `fdb.*` | `port`, `vlan`, `bridge`, `flags` |
 | `neigh.*` | `ips` |
@@ -218,11 +218,10 @@ observation ending and another beginning rather than one changing.
 ### Set-valued attributes
 
 `fdb.flags` and `neigh.ips` accumulate across rows rather than conflicting.
-Two rows reporting membership are not two sources disagreeing: a DSA switch
-with assisted learning on the CPU port reports one forwarding entry twice for
-the same `(mac, port, vlan)`, once as `self` from the hardware table and once
-as `master` from the software bridge, and the honest flag set is the union of
-both.
+Two rows reporting the same observation are not two sources disagreeing when
+they carry complementary set-valued facts. The honest value is the union. No
+hardware/software provenance is assigned from the presence of `self`, a master,
+or the absence of one (D40, D47).
 
 ## Port rows
 
@@ -252,8 +251,8 @@ reader can report per-port facts.
 A port's bridge, carrier and address are **reported** by the link dump, so
 they are `topo.bridge`, `topo.carrier` and `topo.address` in `attrs` — not
 joins, and not derived (D35). `derived.bridge` on an *FDB* row is a genuine
-join, because a DSA hardware entry carries no bridge at all; keeping the two
-apart is what stops the format's one inference from sitting among reported
+join when that FDB observation did not itself carry `fdb.bridge`; keeping the
+two apart is what stops the format's one inference from sitting among reported
 values.
 
 `topo.vlan_flags` is index-aligned with `topo.vlans` and carries the
@@ -271,8 +270,8 @@ displayed as three MACs on a port; what that implies is a hint (P5).
 ### Disputed values
 
 Where two readers report different values for one non-set-valued attribute of
-one observation, the attribute is **removed** from `attrs` and every claim is recorded on the entity, with a
-matching entry in `scope.conflicts` (D27, D37):
+one observation, the attribute is **removed** from `attrs` and every claim is
+recorded on the entity, with a matching entry in `scope.conflicts` (D27, D37):
 
 ```json
 {
@@ -323,8 +322,9 @@ attribute came from more than one reader in agreement, `source` is an array.
 ```
 
 `attrs` contains `fdb.port` always, `fdb.vlan` only when the kernel reported
-one, `fdb.bridge` only when the kernel reported one (never, for a DSA hardware
-entry), and `fdb.flags` when any flag or state applies.
+one, `fdb.bridge` only when the kernel reported one, and `fdb.flags` when any
+flag or state applies. The absence of `fdb.bridge` is a reported structural
+fact, not by itself evidence that the row came from a hardware table (D47).
 
 ### `fdb.flags` vocabulary
 
@@ -353,7 +353,7 @@ stating which of the three it is; if it is none of them, P2 forbids it.
 | `port_count` | count | ports whose `topo.bridge` is this bridge |
 | `vlans_observed` | count | distinct resolved VLANs on this port |
 | `mac_class` | classification | `unicast` / `multicast` / `protocol`; group bit and a published prefix list |
-| `local` | join | the address equals a `topo.address` of this device, so the entry is the device's own |
+| `local` | join | the address equals a reported `topo.address` or `br.address` of this device |
 | `on_bridge_device` | join | the row's port is itself a bridge |
 | `vlan` | **inference** | reported id, else the port's PVID |
 | `vlan_source` | provenance | `fdb` when reported, `pvid` when inferred, `null` when neither |
@@ -397,6 +397,16 @@ a `fdb.flags` token; adding an entry to `scope`.
 **Breaking, bump required:** removing or renaming a field; changing a field's
 meaning or type; removing a status value; changing what an existing status
 means.
+
+The September 2026 hardening work is a one-time pre-release exception in
+process, not in semantics: unreleased development drafts labelled version 1
+contained `entries_switch_reported` / `entries_bridge_reported`, whose stated
+meaning was disproved by live software-bridge evidence. They were removed, and
+`br.address` was added, before there was an upstream or released v1 contract.
+The version therefore remains 1 for the contract that will actually ship. Once
+v1 is released or consumed as a stable interface, the breaking-change rule
+above applies normally; this correction is not precedent for changing a
+released v1 in place (D47).
 
 Two rules make the compatible list actually compatible, and both are consumer
 obligations:
