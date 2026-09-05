@@ -18,7 +18,7 @@
           { "vid": 1, "flags": 0 }, { "vid": 12, "flags": 6 }, { "vid": 20, "flags": 0 }
         ] } } },
       { "ifname": "lan2", "master": "switch", "address": "02:38:00:00:00:02",
-        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 12, "flags": 6 } ] } },
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 12, "flags": 6 } ] } } },
       { "ifname": "switch", "master": "switch", "address": "02:38:00:00:00:01",
         "af_spec": { "bridge": { "bridge_vlan_info": [
           { "vid": 1, "flags": 0 }, { "vid": 12, "flags": 0 }, { "vid": 20, "flags": 0 }
