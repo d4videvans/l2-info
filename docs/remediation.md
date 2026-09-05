@@ -248,28 +248,32 @@ RTL838x fixture was added. Node tests were skipped on these OpenWrt targets
 because Node was not installed. The D48 regression-test gap itself is closed;
 browser-side tests remain an R11 CI concern.
 
-### R6d — Reject all-zero FDB placeholder identities (P0/P1) — code fixed; live regression pending
+### R6d — Reject all-zero FDB placeholder identities (P0/P1) — done; Linksys live-verified
 
 **Finding.** The Linksys SPNMX56 AF_BRIDGE FDB dump produced large runs of
 `00:00:00:00:00:00` rows on the DSA LAN ports with VIDs 66, 67 and 68, although
 those VIDs were absent from the corresponding bridge VLAN membership. The
-production snapshot read 753 raw FDB rows. A `bridge -j fdb show` moments later
-returned 1,423 rows, of which 1,303 were all-zero placeholders. After removing
-only the zero address, exactly 120 non-zero `(MAC, port, VLAN)` identities
-remained; those were exactly the same 120 non-zero identities present in the
-earlier production snapshot. Only the number of zero rows changed.
+production snapshot initially read 753 raw FDB rows. A `bridge -j fdb show`
+moments later returned 1,423 rows, of which 1,303 were all-zero placeholders.
+After removing only the zero address, exactly 120 non-zero `(MAC, port, VLAN)`
+identities remained; those were exactly the same 120 non-zero identities
+present in the earlier production snapshot. Only the number of zero rows
+changed.
 
-**Fix.** An FDB observation cannot form the registered `{mac}` subject without
-a usable address identity. The rtnl reader now drops only
-`00:00:00:00:00:00`, matching its existing treatment of incomplete all-zero
+**Decision/fix (D49).** An FDB observation cannot form the registered `{mac}`
+subject without a usable address identity. The rtnl reader drops only
+`00:00:00:00:00:00`, matching its existing treatment of unresolved all-zero
 neighbour mappings. No VLAN or port is filtered: a non-zero MAC on VID 66, 67
 or 68 remains reportable. `fixtures/sources/rtnl/zero-fdb-placeholder` pins
 that narrow rule by placing both zero and non-zero rows on the same port/VID.
 
-**Regression needed.** Run the current branch on the SPNMX56. The new fixture
-must pass, the production snapshot must contain no all-zero FDB subject, and the
-120 real identities seen in the original capture should remain present subject
-to ordinary live-table churn.
+**Live regression.** The post-fix SPNMX56 snapshot contained 121 raw FDB
+observations, no all-zero FDB subject and no bogus VIDs 66/67/68. The
+simultaneous `bridge -j fdb show` contained 1,422 rows, of which 1,301 were
+all-zero placeholders. Its remaining 121 non-zero `(MAC, port, VLAN)` identities
+matched the production snapshot exactly one-for-one. The suite passed all 33
+ucode/mechanical groups, including `zero-fdb-placeholder` (18 checks). This
+closes R6d without introducing a device- or VLAN-specific path.
 
 ## Phase 3 — LuCI and API integration
 
@@ -341,11 +345,10 @@ from upstream integration:
 The Cudy copied checkout exposed why this matters: its live production
 validation succeeded, but the then-new RTL838x source fixture contained malformed
 JSON and made `tests/run.sh` fail. The fixture was corrected. The subsequent
-SPNMX56 checkout executed both newly-added link-shape fixtures successfully:
-`rtl838x-dsa-link-shape` passed 34 checks and `filogic-router-link-shape` passed
-39, bringing that checkout to 32 passing ucode/mechanical groups. Node tests
-were still skipped because Node is absent on the target. The zero-placeholder
-fixture was added after that run and remains to be executed.
+SPNMX56 checkout executed both newly-added link-shape fixtures successfully,
+and the post-R6d SPNMX56 run executed `zero-fdb-placeholder` as well: the current
+ucode/mechanical suite now passes **33 groups** on a physical OpenWrt target.
+Node tests remain skipped on targets without Node and must be mandatory in CI.
 
 Until full CI/build jobs exist, do not describe repository tests as proving feed
 integration.
@@ -367,7 +370,7 @@ one switch.
 | Zyxel GS1920-24 v1 | **rtl839x validation complete for current questions** | generic bridge identity/address live-verified; 28 ports; bridge/device locality; ~1.2–1.3 s hardware walk; current 30-group ucode/mechanical suite passed |
 | Zyxel GS1900-8HP B1 | **rtl838x validation complete for current questions** | one bridge/eight ports; distinct per-port addresses; nested DSA slave bridge metadata does not create false bridges; operator management VLAN child stays outside port set; 141 raw FDB rows matched `bridge` exactly; 1.187 s; no R5 case |
 | Cudy WR3000P v1 | **Filogic/router validation complete for current questions** | one bridge/eight mixed wired/Wi-Fi ports; members without top-level generic kind still discovered via AF_BRIDGE; VLAN children excluded; 130 raw FDB rows matched `bridge`, three flag-only duplicate pairs merged to 127; 233 ms; no R5 case |
-| Linksys SPNMX56 | **topology validated; R6d live regression pending** | qualcommax/ipq50xx; one bridge/nine ports; D46 link/membership split correct; 1.317 s; exposed unstable all-zero qca8k FDB placeholders now filtered by R6d; no R5 case; current pre-R6d checkout passed 32 ucode/mechanical groups |
+| Linksys SPNMX56 | **qualcommax/ipq50xx validation complete for current questions** | one bridge/nine ports; D46 link/membership split correct; exposed unstable all-zero qca8k FDB placeholders; D49 source filter live-verified with exact 121/121 non-zero identity match; post-fix snapshot 915 ms; current 33-group ucode/mechanical suite passed; no R5 case |
 | Linksys EA8300 | pending | older router/DSA compatibility |
 
 For each device, record:
@@ -387,21 +390,19 @@ Raw captures must follow D15 redaction before being committed as fixtures.
 
 ## Suggested execution order
 
-1. R1–R4, R6a–R6c, R7–R9 and R12 — implemented; D46–D48 now have live evidence
-   across x86 software bridging, two Realtek switch generations, Filogic and
-   qualcommax.
-2. Re-run current v2 on the SPNMX56 to execute `zero-fdb-placeholder` and verify
-   the R6d production filter without losing real FDB identities.
-3. EA8300 as the remaining older router/DSA case.
-4. Revisit R5 after the remaining router case; implement it only if real
+1. R1–R4, R6a–R6d, R7–R9 and R12 — implemented and live-regressed across x86,
+   two Realtek switch generations, Filogic and qualcommax.
+2. EA8300 as the remaining older router/DSA case.
+3. Revisit R5 after the remaining router case; implement it only if real
    partial-attribute evidence appears.
-5. R10 packaging/POT work and R11 CI/build integration.
-6. Final current-master OpenWrt/LuCI review before upstream PRs.
+4. R10 packaging/POT work and R11 CI/build integration.
+5. Final current-master OpenWrt/LuCI review before upstream PRs.
 
 The plan is deliberately evidence-led. The x86 sweep invalidated several
 plausible-looking assumptions, the two Realtek devices then validated the
 corrected mechanisms across different switch generations, the Cudy added a
 router topology in which not every bridge member has a useful top-level generic
-link kind, and the Linksys exposed a driver-specific FDB placeholder pattern
-without requiring a device-specific data path. Preserve the same discipline for
-the remaining portability work rather than filling gaps by inference.
+link kind, and the Linksys exposed and then live-regressed a driver-specific
+FDB placeholder pattern without requiring a device-specific data path. Preserve
+the same discipline for the remaining portability work rather than filling gaps
+by inference.
