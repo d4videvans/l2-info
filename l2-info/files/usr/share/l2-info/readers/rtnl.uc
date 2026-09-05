@@ -265,6 +265,16 @@ function fdb_rows(nl) {
 		if (!mac || !e.dev)
 			continue;
 
+		// A forwarding observation needs an address identity. A live
+		// qualcommax/qca8k dump emitted hundreds of repeated all-zero rows on
+		// DSA ports, with VIDs absent from bridge VLAN membership; the number
+		// of these rows changed between consecutive dumps while every non-zero
+		// MAC/port/VLAN identity remained identical. As with incomplete
+		// neighbour entries below, the all-zero lladdr is therefore treated as
+		// absence of a usable address identity, not as a host or FDB subject.
+		if (mac == '00:00:00:00:00:00')
+			continue;
+
 		let attrs = { 'fdb.port': e.dev };
 
 		// Omitted by the kernel when the id is zero, i.e. for untagged
