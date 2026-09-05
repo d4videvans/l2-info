@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UCODE_COMMIT: b885dd0fe1e974551fb1233ca5f3aa74d80b74d9
+
 jobs:
   unit:
     name: Unit and fixture tests
@@ -27,9 +30,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake git libjson-c-dev pkg-config
 
-      - name: Build host ucode
+      - name: Build OpenWrt-pinned host ucode
         run: |
-          git clone --depth=1 https://github.com/jow-/ucode.git /tmp/ucode
+          git init /tmp/ucode
+          git -C /tmp/ucode remote add origin https://github.com/jow-/ucode.git
+          git -C /tmp/ucode fetch --depth=1 origin "$UCODE_COMMIT"
+          git -C /tmp/ucode checkout FETCH_HEAD
           cmake -S /tmp/ucode -B /tmp/ucode-build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr/local \
@@ -42,6 +48,7 @@ jobs:
             -DRESOLV_SUPPORT=OFF
           cmake --build /tmp/ucode-build --parallel
           sudo cmake --install /tmp/ucode-build
+          sudo ldconfig
           ucode -V
 
       - name: Validate fixture JSON
@@ -53,7 +60,7 @@ jobs:
         run: sh tests/run.sh
 
   luci-eslint:
-    name: LuCI JavaScript and JSON lint
+    name: Current LuCI lint
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -64,21 +71,22 @@ jobs:
         with:
           node-version: latest
 
-      - name: Install current LuCI ESLint 9 stack
+      - name: Stage app in current LuCI tree
         run: |
-          npm install --no-audit --no-fund --save-dev \
-            eslint@9 \
-            @eslint/json@0 \
-            @eslint/js@9 \
-            @eslint/markdown@6 \
-            eslint-formatter-gha
+          git clone --depth=1 https://github.com/openwrt/luci.git /tmp/luci
+          rm -rf /tmp/luci/applications/luci-app-l2-info
+          cp -a luci-app-l2-info /tmp/luci/applications/luci-app-l2-info
 
-      - name: Run ESLint on LuCI sources
+      - name: Install LuCI's declared lint dependencies
+        working-directory: /tmp/luci
+        run: npm install --no-audit --no-fund
+
+      - name: Run LuCI's ESLint configuration
+        working-directory: /tmp/luci
         run: |
           npx eslint \
-            luci-app-l2-info/htdocs/luci-static/resources/**/*.js \
-            luci-app-l2-info/root/usr/share/**/*.json \
-            tests/*.js
+            applications/luci-app-l2-info/htdocs/luci-static/resources/**/*.js \
+            applications/luci-app-l2-info/root/usr/share/**/*.json
 
   upstream-build:
     name: OpenWrt/LuCI package build
