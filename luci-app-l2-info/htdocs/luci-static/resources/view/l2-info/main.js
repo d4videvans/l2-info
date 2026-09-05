@@ -207,7 +207,7 @@ function renderSnapshotSummary(snap) {
 	var quality = problems.length
 		? el('span', { 'class': 'label warning' },
 			_('%d data areas need attention').format(problems.length))
-		: el('span', { 'class': 'label success' }, _('Complete'));
+		: el('span', { 'class': 'label success' }, _('Available'));
 	var parts = [
 		d.model || d.board || _('unreported'),
 		fmtTopology(snap),
