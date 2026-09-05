@@ -140,10 +140,12 @@ an inference.
 
 Notes that are contract, not commentary:
 
-- `count` is counted over rows as read, before merging, so it says how many
-  observations sources returned. FDB row shape is **not** interpreted as
-  hardware/software provenance; `self` plus no master occurs on ordinary
-  software bridges as well as on switch-oriented systems (D47).
+- `count` is counted over valid rows as read, before merging, so it says how
+  many observations sources returned after source-boundary validation. FDB row
+  shape is **not** interpreted as hardware/software provenance; `self` plus no
+  master occurs on ordinary software bridges as well as on switch-oriented
+  systems (D47). All-zero FDB placeholder rows do not count because they cannot
+  form a valid `{mac}` subject (D49).
 - `fdb.status` is `indeterminate` when the dump succeeded with zero rows, since
   an idle switch and a driver that does not expose relevant forwarding entries
   are indistinguishable from one sample.
@@ -192,10 +194,17 @@ Registered set. A row carries exactly one identity key.
 
 | Subject | Identifies |
 |---|---|
-| `{ "mac": … }` | an address |
+| `{ "mac": … }` | a usable non-zero link-layer address |
 | `{ "port": … }` | a port or interface |
 | `{ "bridge": … }` | a bridge |
 | `{ "self": true }` | this device as a whole |
+
+For FDB observations specifically, `00:00:00:00:00:00` is not an address
+identity and must not produce a row. Some drivers emit it as a transient or
+placeholder lladdr while walking their forwarding table; treating it as a
+subject invents one synthetic MAC and can attach unrelated placeholder VLANs
+to real ports. Readers discard that identity at the source boundary, without
+filtering the accompanying port, VLAN or flags for any non-zero address (D49).
 
 ### Observation identity
 
@@ -263,8 +272,8 @@ rather than a short array where a VLAN has no flags.
 `topo.port` is retained alongside the subject: it is what the source reported,
 and `attrs` holds reported values even where they duplicate an identity.
 
-`mac_count` and `vlans_observed` are counts over this snapshot's own FDB rows —
-reported quantities, not classifications (P2). Three MACs on a port is
+`mac_count` and `vlans_observed` are counts over this snapshot's own valid FDB
+rows — reported quantities, not classifications (P2). Three MACs on a port is
 displayed as three MACs on a port; what that implies is a hint (P5).
 
 ### Disputed values
@@ -325,6 +334,8 @@ attribute came from more than one reader in agreement, `source` is an array.
 one, `fdb.bridge` only when the kernel reported one, and `fdb.flags` when any
 flag or state applies. The absence of `fdb.bridge` is a reported structural
 fact, not by itself evidence that the row came from a hardware table (D47).
+An FDB row also requires a usable non-zero `subject.mac`; all-zero lladdrs are
+source placeholders rather than address identities and are not emitted (D49).
 
 ### `fdb.flags` vocabulary
 
@@ -368,13 +379,14 @@ mark a `pvid` value visibly (P3).
 
 `protocol` covers the published multicast and control ranges — IPv4 multicast
 `01:00:5e`, IPv6 multicast `33:33`, STP/LLDP `01:80:c2`, Cisco `01:00:0c`,
-DEC/OSI `09:00:2b` — plus the all-ones and all-zeros addresses and two exact
-values observed as bridge-FDB self entries across a whole fleet without their
-registering protocol being identified. `multicast` is any other address with
-the group bit set. Everything else is `unicast`.
+DEC/OSI `09:00:2b` — plus the all-ones address and two exact values observed as
+bridge-FDB self entries across a whole fleet without their registering protocol
+being identified. `multicast` is any other address with the group bit set.
+Everything else is `unicast`.
 
-Rows are classified, never dropped: filtering them out of a display is view
-policy (P2, P5).
+The all-zero address is intentionally absent from this classifier: D49 rejects
+it before an FDB row exists. Valid rows are classified, never dropped; filtering
+them out of a display is view policy (P2, P5).
 
 ## Export
 
