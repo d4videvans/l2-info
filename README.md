@@ -80,10 +80,23 @@ same bridge self-mastered. With the current backend, `br.address` is present,
 matching FDB observations are marked local, and the removed provenance-split
 fields stay absent.
 
-The current ucode/mechanical suite has also run on that GS1920 checkout: all 30
-groups pass, including the `null-empty-dump` (D48) and `empty-bridge-local`
-(D47) regression fixtures. Browser-side hint/export/query/diff unit tests are
-still skipped on targets without Node and remain a CI task.
+A GS1900-8HP B1 adds a second Realtek generation (`rtl838x`, kernel 6.12.94).
+Its generic link view identifies `switch` directly as a bridge while DSA user
+ports identify as `type: "dsa"` even though their nested slave metadata also
+contains `type: "bridge"`; the VLAN child `switch.20` identifies as `type:
+"vlan"`. The production backend reports exactly one bridge and eight ports,
+keeps `switch.20` out of the bridge-port collection, recognises the switch's
+distinct per-port link addresses as local, and produced 141 raw FDB
+observations in 1.187 s. The simultaneous `bridge -j fdb show` cross-check also
+contained 141 rows. A minimal redacted `rtl838x-dsa-link-shape` source fixture
+pins the new link representation without copying the live forwarding table.
+
+The current ucode/mechanical suite has run on the GS1920 and on the GS1900
+checkout used for this validation: all 30 then-existing groups pass, including
+the `null-empty-dump` (D48) and `empty-bridge-local` (D47) regressions.
+Browser-side hint/export/query/diff unit tests are still skipped on targets
+without Node and remain a CI task. The newly-added RTL838x source fixture was
+created after the GS1900 run and still needs a subsequent suite execution.
 
 `sh tests/run.sh` discovers and replays fixtures across source, discovery and
 device seams and runs the mechanical checks that enforce the principles. With
@@ -118,19 +131,22 @@ sh tools/collect-validation.sh
 ```
 
 `tools/install-dev-backend.sh` is a development helper, not a package-manager
-replacement. It installs/reloads the core before replacing the dynamically
-loaded reader, avoiding a transient new-reader/old-assembler contract mismatch;
-it then verifies that the ubus object re-registers. It does not trigger a
-snapshot automatically.
+replacement. Because manual copying bypasses package dependency resolution, it
+first verifies that the ucode modules required by the backend are actually
+available and prints the appropriate `apk add`/`opkg install` command if not.
+It then installs/reloads the core before replacing the dynamically loaded
+reader, avoiding a transient new-reader/old-assembler contract mismatch, and
+verifies that the ubus object re-registers. It does not trigger a snapshot
+automatically.
 
 `tools/collect-validation.sh` creates a timestamped directory under `/tmp` by
-default. It records board metadata, one production snapshot, the safe rtnetlink
-link probe, optional `bridge -j` cross-checks when `ip-bridge` is installed, and
-the fixture/mechanical test output. It requires no git, Node or jq. When
-`sha256sum` is available it also records hashes of both the copied source files
-and the installed backend, so an archive/WinSCP workflow still has exact code
-provenance. Copy the resulting directory off the device with WinSCP for
-analysis.
+default. It records board metadata, runtime module availability, one production
+snapshot, the safe rtnetlink link probe, optional `bridge -j` cross-checks when
+`ip-bridge` is installed, and the fixture/mechanical test output. It requires no
+git, Node or jq. When `sha256sum` is available it also records hashes of both
+the copied source files and the installed backend, so an archive/WinSCP
+workflow still has exact code provenance. Copy the resulting directory off the
+device with WinSCP for analysis.
 
 Validation bundles are deliberately raw evidence and may contain MAC addresses,
 IP addresses and host names. They are suitable for private analysis but must not
