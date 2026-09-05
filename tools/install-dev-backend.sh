@@ -39,9 +39,12 @@ copy_atomic() {
 	mv "$tmp" "$dst"
 }
 
+# The assembler is loaded once when rpcd loads the ubus plugin, while readers
+# are discovered from disk for each snapshot. Install/reload the core first so
+# a running old assembler is never exposed to a newer reader vocabulary during
+# a manual development update (for example br.address in D47).
 copy_atomic "$SRC/rpcd/ucode/l2-info" /usr/share/rpcd/ucode/l2-info
 copy_atomic "$SRC/l2-info/assemble.uc" /usr/share/l2-info/assemble.uc
-copy_atomic "$SRC/l2-info/readers/rtnl.uc" /usr/share/l2-info/readers/rtnl.uc
 
 /etc/init.d/rpcd reload
 
@@ -52,6 +55,9 @@ if ! ubus -v list l2-info >/dev/null 2>&1; then
 	sleep 1
 	ubus -v list l2-info >/dev/null 2>&1 || fail "l2-info ubus object did not register after rpcd reload"
 fi
+
+# Readers are loaded afresh by snapshot(), so no second rpcd reload is needed.
+copy_atomic "$SRC/l2-info/readers/rtnl.uc" /usr/share/l2-info/readers/rtnl.uc
 
 echo "l2-info development backend installed from: $ROOT"
 echo "Verify with: ubus call l2-info snapshot"
