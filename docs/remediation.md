@@ -83,7 +83,7 @@ therefore add bridge collection and bridge-reader coverage to the same guard.
 
 ## Phase 2 — source and data-contract portability
 
-### R4 — Detect bridge devices independently of membership (P1) — done; x86 + GS1920 hardware-verified
+### R4 — Detect bridge devices independently of membership (P1) — done; multi-platform hardware-verified
 
 **Problem.** Bridge discovery used AF_BRIDGE `master` references, including the
 self-master behaviour observed on rtl839x. An empty bridge has no member
@@ -100,20 +100,28 @@ bridge and mismatch fixtures.
 
 **Live validation.** On x86/64 OpenWrt 25.12.5, kernel 6.12.94, a deliberately
 empty `l2probe0` bridge was reported by the production backend as one bridge
-with zero ports and `derived.port_count: 0`. The older v2 fixture/mechanical
-suite passed on that OpenWrt runtime (28 groups; browser-side Node tests skipped
-because Node was not installed). A populated software bridge and a
+with zero ports and `derived.port_count: 0`. A populated software bridge and a
 VLAN-filtering software bridge also report one bridge/one port correctly. With
 VLAN filtering enabled and VLAN 10 added, the production snapshot carried both
 VLAN 1 and VLAN 10 through `topo.vlans` and `derived.vlans_observed`.
 
-On 2026-09-05 the generic-link probe was then run on the GS1920-24 v1 itself
-(OpenWrt SNAPSHOT r36029-ce22f3ba6c, rtl839x kernel 6.18.44). Generic
-RTM_GETLINK reported `switch` with `master: null` and
-`linkinfo.type == "bridge"`; the AF_BRIDGE view reported the same bridge
-self-mastered with `linkinfo: null`, and sysfs independently agreed it is a
-bridge. The generic companion row in `self-mastered-bridge` is therefore live
-rtl839x evidence rather than a synthetic assumption.
+On the GS1920-24 v1 (rtl839x, kernel 6.18.44), generic RTM_GETLINK reported
+`switch` with `master: null` and `linkinfo.type == "bridge"`; the AF_BRIDGE view
+reported the same bridge self-mastered with `linkinfo: null`, and sysfs agreed
+it is a bridge.
+
+The GS1900-8HP B1 (rtl838x, kernel 6.12.94) adds a different DSA representation:
+`switch` is directly `type: "bridge"`; user ports are `type: "dsa"` with nested
+`slave.type: "bridge"`; and the operator-configured management child
+`switch.20` is `type: "vlan"`. Only `switch` becomes a bridge and AF_BRIDGE
+provides the eight actual members.
+
+The Cudy WR3000P v1 (`mediatek/filogic`, kernel 6.12.94) adds another shape:
+`br-lan` is directly `type: "bridge"`, DSA LAN ports may be `type: "dsa"`, but
+other real bridge members such as `wan` and Wi-Fi AP interfaces can have no
+top-level link kind at all and only nested `slave.type: "bridge"`. They are
+still correctly reported as ports because membership comes from AF_BRIDGE,
+while VLAN children such as `br-lan.20` remain outside the port set.
 
 ### R5 — Preserve valid partial observations (P1, evidence-gated)
 
@@ -125,14 +133,20 @@ losing a bridge row can lose a reported `br.address` used by `derived.local`.
 This is real but needs a schema decision rather than a quick refactor. Do not
 move it ahead of hardware validation merely because it is easy to describe.
 
-**Decision work required.** The leading model is to retain successfully read
-entity evidence while attaching explicit coverage evidence naming the subject,
-attribute and failure reason. Simply omitting the unreadable attribute would
-reintroduce P1's ambiguity and is not acceptable.
+**Evidence so far.** The x86 sweep, GS1920, GS1900 and Cudy captures have not
+produced a real partial-attribute case: whenever the reader was usable, the
+live collections in question were wholly `ok`. The first GS1900 attempt did
+show a missing runtime dependency, but that correctly made the rtnl collections
+unavailable as a whole and is not partial entity evidence.
 
-**Work.** Let the hardware sweep tell us whether this occurs in practice, then
-add a decision record before changing schema semantics. Add mixed bridge-state
-fixtures and update snapshot documentation and validation together.
+**Decision work required.** The leading model remains to retain successfully
+read entity evidence while attaching explicit coverage evidence naming the
+subject, attribute and failure reason. Simply omitting the unreadable attribute
+would reintroduce P1's ambiguity and is not acceptable.
+
+**Work.** Keep this evidence-gated through the remaining router sweep. If no
+real case appears, defer the schema expansion rather than adding complexity for
+a hypothetical failure mode.
 
 ### R6 — No-bridge FDB special case (P1) — rejected by hardware evidence
 
@@ -172,19 +186,18 @@ The format remains version 1 because the disproved fields existed only in
 unreleased development drafts. D47 records that this is a pre-release
 correction, not precedent for changing a released v1 in place.
 
-**GS1920 regression.** With the current backend on the GS1920-24 v1,
-`scope.fdb` contains only `status` and the raw count (50 in the validation
-snapshot); both obsolete provenance fields are absent. This confirms the
-corrected contract on the original hardware that motivated the old split.
+**Live regressions.** The GS1920 current backend keeps the obsolete scope fields
+absent. On the Cudy, three remote client observations were each reported twice
+with the same MAC/port/VLAN identity but differing flags; D40 merged each pair
+and unioned the flags, including `self`, while `derived.local` remained false.
+That is direct live evidence that `self` is neither a locality nor a portable
+provenance test.
 
-### R6b — Bridge-device own MAC and `derived.local` (P1) — done; x86 + GS1920 hardware-verified
+### R6b — Bridge/device own MAC and `derived.local` (P1) — done; multi-platform hardware-verified
 
 **Finding.** An empty software bridge exposed its own unicast FDB address on
 `l2probe0`, but D44 joined locality only against `topo.address` on port rows, so
-that observation was `local: false`. After `eth0` was attached, both
-`/sys/class/net/l2probe0/address` and `/sys/class/net/eth0/address` were
-`52:54:00:12:34:56`; the existing port-address join then correctly marked the
-matching VLAN 1 and VLAN 10 observations local.
+that observation was `local: false`.
 
 **Decision (D47).** A bridge's own link address is a reported fact, not a
 heuristic. Generic RTM_GETLINK already used for D46 reports it, so register it
@@ -200,11 +213,12 @@ Because `br.address` is now load-bearing for movement interpretation, commits
 `f206576` and `5e60d15` also make bridge acquisition scope part of diff
 compatibility.
 
-**GS1920 regression.** The generic rtl839x link row contains an address. With
-the current backend, the bridge row reports `br.address`; it equals the DSA-port
-`topo.address`, and eight FDB observations were marked `derived.local: true` in
-the validation snapshot. `self-mastered-bridge` now carries a redacted generic
-bridge address and asserts it explicitly.
+**Live regressions.** On the GS1920, the bridge address equals the DSA-port
+address and eight FDB observations were local. On the GS1900, the eight DSA user
+ports instead expose distinct sequential addresses; those per-port own-address
+observations are also recognised as local. The Cudy preserves the same exact
+reported-value rule while demonstrating that an FDB row carrying `self` can
+still be non-local.
 
 ### R6c — Successful zero-row rtnetlink dumps return null (P0/P1) — done
 
@@ -222,14 +236,12 @@ then apply normally: an empty neighbour read is `ok`; an empty FDB read remains
 `indeterminate` under P4. Commits `eb6c61f`, `b723db9`, `93ad20b` and `f7aefd3`
 extend source replay and add a `null-empty-dump` fixture.
 
-**Live regression.** The production fix was first applied manually to the older
-v2-branch ZIP on x86/64 OpenWrt 25.12.5 and all 28 then-existing
-ucode/mechanical groups passed. The current v2 checkout was subsequently run on
-the GS1920-24 v1: all 30 ucode/mechanical groups passed, including the new
-`null-empty-dump` fixture and `empty-bridge-local`. Node tests were skipped on
-both OpenWrt targets because Node was not installed. The D48 regression-test gap
-is therefore closed; browser-side tests remain an R11 CI concern, not part of
-this item.
+**Live regression.** The current v2 checkout ran on the GS1920 with all 30
+then-existing ucode/mechanical groups passing, including `null-empty-dump` and
+`empty-bridge-local`. The same 30 groups passed on the GS1900 before the new
+RTL838x fixture was added. Node tests were skipped on these OpenWrt targets
+because Node was not installed. The D48 regression-test gap itself is closed;
+browser-side tests remain an R11 CI concern.
 
 ## Phase 3 — LuCI and API integration
 
@@ -270,11 +282,13 @@ test also confirmed that the object registers and `snapshot()` works after
 manual installation; an immediately-following `ubus -v list` once raced the
 reload, while a later list showed the object normally.
 
-For development installs from a checkout, `tools/install-dev-backend.sh` now
+For development installs from a copied checkout, `tools/install-dev-backend.sh`
+now verifies the required ucode modules before changing files, then
 installs/reloads the ubus plugin and assembler before replacing the dynamically
-loaded reader. This avoids the transient new-reader/old-assembler mismatch seen
-when `br.address` was introduced: the contract correctly rejected that partial
-manual update rather than producing mixed-format output.
+loaded reader. The module check was added after the first GS1900 run showed that
+manual copying can bypass the package manager's otherwise-correct
+`ucode-mod-rtnl` dependency. The install order avoids the transient
+new-reader/old-assembler mismatch seen when `br.address` was introduced.
 
 LuCI (`openwrt/luci`):
 
@@ -288,15 +302,19 @@ LuCI (`openwrt/luci`):
 CI should make currently optional checks mandatory and distinguish unit logic
 from upstream integration:
 
-1. ucode source/discovery/device fixture suite, including `null-empty-dump` and
-   `empty-bridge-local`;
+1. ucode source/discovery/device fixture suite, including `null-empty-dump`,
+   `empty-bridge-local`, `rtl838x-dsa-link-shape` and
+   `filogic-router-link-shape`;
 2. Node hint/export/filter/diff/scope tests;
-3. shell/static checks;
+3. shell/static checks, including parse validation for fixture JSON;
 4. backend package build against a pinned/current OpenWrt tree;
 5. LuCI package build/check against a pinned/current LuCI tree.
 
-Until a full build job exists, do not describe the repository tests as proving
-feed integration.
+The Cudy copied checkout exposed why this matters: its live production
+validation succeeded, but the then-new RTL838x source fixture contained malformed
+JSON and made `tests/run.sh` fail. The fixture has been corrected; the failure
+was a repository-test defect, not a router/runtime defect. Until full CI/build
+jobs exist, do not describe repository tests as proving feed integration.
 
 ### R12 — Make the test runner invocation unambiguous (P3) — done
 
@@ -312,9 +330,9 @@ one switch.
 | Device | State | Primary purpose / evidence |
 |---|---|---|
 | x86 OpenWrt 25.12.5 / 6.12.94 | **software-bridge sweep complete for current questions** | no-bridge, empty bridge, populated bridge, VLAN-filtering and VLAN-10 bridge; verified R4 and exposed/corrected R6, D47 and D48 assumptions |
-| Zyxel GS1920-24 v1 | **current rtl839x validation complete for D46–D48** | generic bridge identity/address live-verified; current backend reports 28 ports and local bridge/device rows correctly; current 30-group ucode/mechanical suite passes |
-| Zyxel GS1900-8 | pending | second Realtek switch case: bridge/FDB representation, VLAN flags, dump behaviour, timing |
-| Cudy WR3000P v1 | pending | contemporary router/DSA case |
+| Zyxel GS1920-24 v1 | **rtl839x validation complete for current questions** | generic bridge identity/address live-verified; 28 ports; bridge/device locality; ~1.2–1.3 s hardware walk; current 30-group ucode/mechanical suite passed |
+| Zyxel GS1900-8HP B1 | **rtl838x validation complete for current questions** | one bridge/eight ports; distinct per-port addresses; nested DSA slave bridge metadata does not create false bridges; operator management VLAN child stays outside port set; 141 raw FDB rows matched `bridge` exactly; 1.187 s; no R5 case |
+| Cudy WR3000P v1 | **Filogic/router validation complete for current questions** | one bridge/eight mixed wired/Wi-Fi ports; members without top-level generic kind still discovered via AF_BRIDGE; VLAN children excluded; 130 raw FDB rows matched `bridge`, three flag-only duplicate pairs merged to 127; 233 ms; no R5 case |
 | Linksys Atlas Pro 6 MX5600 / SPNMX56 | pending | materially different router/DSA platform |
 | Linksys EA8300 | pending | older router/DSA compatibility |
 
@@ -335,16 +353,20 @@ Raw captures must follow D15 redaction before being committed as fixtures.
 
 ## Suggested execution order
 
-1. R1–R4, R6a–R6c, R7–R9 and R12 — implemented; D46–D48 now have current
-   OpenWrt execution evidence across x86 software bridging and rtl839x hardware.
-2. GS1900-8 hardware sweep as the next independent Realtek case.
-3. Cudy WR3000P, MX5600 and EA8300 router/DSA sweep.
-4. Revisit R5 only if captured hardware produces a real partial-attribute case.
+1. R1–R4, R6a–R6c, R7–R9 and R12 — implemented; D46–D48 now have live evidence
+   across x86 software bridging, two Realtek switch generations and Filogic.
+2. On the next copied checkout, execute the corrected
+   `rtl838x-dsa-link-shape` fixture and new `filogic-router-link-shape` fixture;
+   neither has yet had a successful current-branch ucode replay after creation.
+3. MX5600/SPNMX56 and EA8300 router/DSA sweep.
+4. Revisit R5 after the remaining router cases; implement it only if real
+   partial-attribute evidence appears.
 5. R10 packaging/POT work and R11 CI/build integration.
 6. Final current-master OpenWrt/LuCI review before upstream PRs.
 
-The plan is deliberately evidence-led. The x86 sweep both verified R4 and
-invalidated several plausible-looking assumptions; the GS1920 recheck then
-confirmed the corrected mechanisms on the hardware that motivated the original
-fixtures. Preserve the same discipline for the remaining portability work
+The plan is deliberately evidence-led. The x86 sweep invalidated several
+plausible-looking assumptions, the two Realtek devices then validated the
+corrected mechanisms across different switch generations, and the Cudy added a
+router topology in which not every bridge member has a useful top-level generic
+link kind. Preserve the same discipline for the remaining portability work
 rather than filling gaps by inference.
