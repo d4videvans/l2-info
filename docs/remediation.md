@@ -70,13 +70,16 @@ absent; R11 still needs to make them mandatory in CI.
 of successful readers changed. Diffing them can therefore compare different
 observation coverage and present that as network change.
 
-**Decision.** Strong FDB diffs require compatible FDB acquisition scope: the
-snapshot format/version, relevant collection statuses and successful reader
-coverage must match. Annotation-only changes in names/neighbours do not block
-an FDB diff.
+**Decision.** Strong FDB diffs require compatible acquisition scope for every
+collection that can affect FDB identity or movement interpretation. That is now
+`bridges`, `ports` and `fdb`: bridge and port addresses both participate in
+`derived.local`, and port PVID participates in VLAN resolution. Annotation-only
+changes in names/neighbours do not block an FDB diff.
 
-**Implemented.** Commits `9b4b5ea` and `630300c` scope compatibility to the
-load-bearing FDB inputs and pin the annotation distinction in tests.
+**Implemented.** Commits `9b4b5ea` and `630300c` originally scoped compatibility
+to the load-bearing FDB inputs and pinned the annotation distinction in tests.
+D47 made bridge addresses load-bearing too; commits `f206576` and `5e60d15`
+therefore add bridge collection and bridge-reader coverage to the same guard.
 
 ## Phase 2 — source and data-contract portability
 
@@ -97,8 +100,8 @@ bridge and mismatch fixtures.
 
 **Live validation.** On x86/64 OpenWrt 25.12.5, kernel 6.12.94, a deliberately
 empty `l2probe0` bridge was reported by the production backend as one bridge
-with zero ports and `derived.port_count: 0`. The same fixture/source suite
-passed on that OpenWrt runtime (28 groups; browser-side Node tests skipped
+with zero ports and `derived.port_count: 0`. The older v2 fixture/mechanical
+suite passed on that OpenWrt runtime (28 groups; browser-side Node tests skipped
 because Node was not installed). A populated software bridge and a
 VLAN-filtering software bridge also report one bridge/one port correctly. With
 VLAN filtering enabled and VLAN 10 added, the production snapshot carried both
@@ -112,11 +115,11 @@ confirmation that `switch` exposes `linkinfo.type == "bridge"` there too.
 
 **Problem.** A collection-level non-`ok` status currently forbids all rows for
 that collection. One unreadable `vlan_filtering` attribute can therefore
-discard bridge identities which were read successfully.
+discard bridge identities which were read successfully. D47 also means that
+losing a bridge row can lose a reported `br.address` used by `derived.local`.
 
-This is real but appears rarer than R2/R4 and needs a schema decision rather
-than a quick refactor. Do not move it ahead of hardware validation merely
-because it is easy to describe.
+This is real but needs a schema decision rather than a quick refactor. Do not
+move it ahead of hardware validation merely because it is easy to describe.
 
 **Decision work required.** The leading model is to retain successfully read
 entity evidence while attaching explicit coverage evidence naming the subject,
@@ -142,46 +145,53 @@ stands: a successful zero-row FDB dump remains `indeterminate` when one sample
 cannot distinguish true emptiness from an observation gap; non-zero rows are
 reported as observed.
 
-### R6a — Stop treating FDB row shape as hardware/software provenance (P0/P1) — open
+### R6a — Stop treating FDB row shape as hardware/software provenance (P0/P1) — done
 
-**New finding from x86 validation.** An ordinary software-only Linux bridge,
-with no switch ASIC involved, produced many `self` FDB rows with no
-`fdb.bridge`. The current scope calculation calls these
-`entries_switch_reported` and treats a non-zero count as positive evidence of a
-hardware table. That inference is false: the VLAN-filtered software bridge
-reported 13 such rows and 3 rows in the complementary bucket; after adding
-VLAN 10, it reported 13 and 5.
+**Finding.** An ordinary software-only Linux bridge, with no switch ASIC
+involved, produced many `self` FDB rows with no `fdb.bridge`. Development
+snapshots nevertheless called those `entries_switch_reported`: the
+VLAN-filtered software bridge produced a 13/3 split, and after adding VLAN 10 a
+13/5 split. The field names and their claimed meaning were therefore false.
 
-The same assumption had leaked into the `duplicate_reports` presentation hint.
-Commit `a7bdc76` removes the hardware/bridge provenance claim from that hint and
-keeps only the observable fact that several kernel FDB observations exist for
-the same address/port.
+**Decision (D47).** Do not infer hardware/software origin from `NTF_SELF`,
+master presence or absence, or `fdb.bridge` presence or absence. Preserve those
+reported fields, but remove the derived scope split. `scope.fdb.count` remains
+a raw pre-merge observation count.
 
-The underlying structural distinction is still observable, but no demonstrated
-consumer needs it. The leading resolution is therefore to remove the two split
-scope fields rather than rename an implementation-shaped distinction into the
-public contract. Record that as a decision and update the format/tests before
-making the change.
+**Implemented.** Commit `a7bdc76` first removed the provenance claim from the
+`duplicate_reports` hint. Commit `e3ab4c6` removes the two scope fields from the
+assembler. `docs/snapshot-format.md` and D42/D47 now state the neutral contract.
+`fixtures/devices/dual-reported-entries` and `empty-bridge-local` negatively
+assert that `entries_switch_reported` and `entries_bridge_reported` stay absent.
 
-Do not infer hardware/software origin solely from `NTF_SELF`/master shape.
-Fixtures must include a pure software bridge case that would fail any such
-claim.
+The format remains version 1 because the disproved fields existed only in
+unreleased development drafts. D47 records that this is a pre-release
+correction, not precedent for changing a released v1 in place.
 
-### R6b — Bridge-device own MAC and `derived.local` (P1, evidence-gated) — open
+### R6b — Bridge-device own MAC and `derived.local` (P1) — done
 
-The empty software bridge exposed its own unicast FDB address on `l2probe0`, but
-`derived.local` was false because D44 currently joins only against
-`topo.address` values from port rows. An empty bridge has no port row. Once
-`eth0` was attached, the member interface's own MAC was correctly marked local,
-including its VLAN 1 and VLAN 10 FDB observations, so the existing join works
-for members; the gap is bridge-device addresses.
+**Finding.** An empty software bridge exposed its own unicast FDB address on
+`l2probe0`, but D44 joined locality only against `topo.address` on port rows, so
+that observation was `local: false`. After `eth0` was attached, both
+`/sys/class/net/l2probe0/address` and `/sys/class/net/eth0/address` were
+`52:54:00:12:34:56`; the existing port-address join then correctly marked the
+matching VLAN 1 and VLAN 10 observations local.
 
-Do not fix this by declaring every address on a bridge device local. Capture
-the generic link address for bridge devices first and decide whether bridge
-rows should report their own MAC as an attribute, then let `local` remain a
-reported-value join.
+**Decision (D47).** A bridge's own link address is a reported fact, not a
+heuristic. Generic RTM_GETLINK already used for D46 reports it, so register it
+as `br.address` and let `derived.local` join against both `topo.address` and
+`br.address`. Do not mark an FDB row local merely because it is on a bridge or
+carries `self`.
 
-### R6c — Successful zero-row rtnetlink dumps return null (P0/P1) — code fixed; regression pending on new fixture
+**Implemented.** Commit `f7b81d9` reports bridge addresses from the generic link
+dump. Commit `e3ab4c6` registers `br.address` and extends the existing exact
+address join. `fixtures/sources/rtnl/empty-bridge-generic` pins the source fact;
+new device fixture `empty-bridge-local` pins `local: true` with zero ports.
+Because `br.address` is now load-bearing for movement interpretation, commits
+`f206576` and `5e60d15` also make bridge acquisition scope part of diff
+compatibility.
+
+### R6c — Successful zero-row rtnetlink dumps return null (P0/P1) — code fixed; new-fixture execution pending
 
 **Finding.** On the populated x86 software bridge, the neighbour collection was
 once reported `unavailable` with `netlink dump returned no result and no error`.
@@ -191,9 +201,9 @@ successful dump with zero rows therefore returns `null` while `nl.error()`
 remains clear. The old wrapper treated that successful-empty representation as
 failure, violating D18/P1.
 
-**Fix.** Commit `2e55c7a` normalises `rows == null` with no rtnl error to an
-empty array. A real rtnl error remains `unavailable`. Collection semantics then
-apply normally: an empty neighbour read is `ok`; an empty FDB read remains
+**Fix (D48).** Commit `2e55c7a` normalises `rows == null` with no rtnl error to
+an empty array. A real rtnl error remains `unavailable`. Collection semantics
+then apply normally: an empty neighbour read is `ok`; an empty FDB read remains
 `indeterminate` under P4. Commits `eb6c61f`, `b723db9`, `93ad20b` and `f7aefd3`
 extend source replay and add a `null-empty-dump` fixture.
 
@@ -201,9 +211,9 @@ extend source replay and add a `null-empty-dump` fixture.
 v2-branch ZIP on x86/64 OpenWrt 25.12.5 and all 28 existing ucode/mechanical
 groups passed. Node tests were skipped because Node is absent. This proves the
 reader change does not regress those existing groups; it does **not** claim the
-new `null-empty-dump` fixture passed on the VM, because that fixture is not in
-the offline ZIP. Run the updated branch's fixture suite in an environment that
-contains the new fixture before closing the regression-test part of this item.
+new `null-empty-dump` fixture passed on the VM, because that fixture was not in
+the offline ZIP. Run the current branch's fixture suite in an environment that
+contains the new fixture before closing this item completely.
 
 ## Phase 3 — LuCI and API integration
 
@@ -256,7 +266,8 @@ LuCI (`openwrt/luci`):
 CI should make currently optional checks mandatory and distinguish unit logic
 from upstream integration:
 
-1. ucode source/discovery/device fixture suite, including `null-empty-dump`;
+1. ucode source/discovery/device fixture suite, including `null-empty-dump` and
+   `empty-bridge-local`;
 2. Node hint/export/filter/diff/scope tests;
 3. shell/static checks;
 4. backend package build against a pinned/current OpenWrt tree;
@@ -278,9 +289,9 @@ one switch.
 
 | Device | State | Primary purpose / evidence |
 |---|---|---|
-| x86 OpenWrt 25.12.5 / 6.12.94 | **R4 verified; software bridge sweep substantially complete** | no-bridge, empty bridge, populated bridge, VLAN-filtering and VLAN-10 bridge; exposed R6, provenance and null-empty assumptions |
-| Zyxel GS1920-24 v1 | baseline captured; D46 generic-link recheck pending | rtl839x regression, FDB duplication and scan cost |
-| Zyxel GS1900-8 | pending | second Realtek switch case: bridge/FDB representation, VLAN flags, hardware dump behaviour, timing |
+| x86 OpenWrt 25.12.5 / 6.12.94 | **software-bridge sweep complete for current questions** | no-bridge, empty bridge, populated bridge, VLAN-filtering and VLAN-10 bridge; verified R4 and exposed/corrected R6, D47 and D48 assumptions |
+| Zyxel GS1920-24 v1 | baseline captured; D46 generic-link recheck pending | rtl839x regression, FDB row-shape/VLAN behaviour and scan cost |
+| Zyxel GS1900-8 | pending | second Realtek switch case: bridge/FDB representation, VLAN flags, dump behaviour, timing |
 | Cudy WR3000P v1 | pending | contemporary router/DSA case |
 | Linksys Atlas Pro 6 MX5600 / SPNMX56 | pending | materially different router/DSA platform |
 | Linksys EA8300 | pending | older router/DSA compatibility |
@@ -291,8 +302,9 @@ For each device, record:
 - snapshot duration and collection statuses;
 - `bridge -j link`, `bridge -j vlan show`, `bridge -j fdb show` where available
   for cross-checking only (not as the product data path);
-- the rtnetlink representation needed to explain bridge identity;
-- the raw FDB row shapes without assigning hardware/software provenance unless
+- the rtnetlink representation needed to explain bridge identity and, where
+  useful, bridge link address;
+- raw FDB row shapes without assigning hardware/software provenance unless
   independently evidenced;
 - whether bridge devices identify cleanly when empty;
 - any collection which is partial, empty or unavailable and why.
@@ -301,17 +313,17 @@ Raw captures must follow D15 redaction before being committed as fixtures.
 
 ## Suggested execution order
 
-1. R1–R4, R7–R9 and R12 — implemented; R4 live-x86 verified.
-2. Resolve R6a's false hardware/software provenance claim before relying on the
-   current scope split anywhere else; leading option is to remove the split.
-3. Capture bridge-device link addresses needed to decide R6b without guessing.
-4. Run the updated `null-empty-dump` source fixture in a current-branch ucode
-   environment; the production fix already passes the older 28-group VM suite.
-5. Re-probe GS1920 generic RTM_GETLINK to live-verify D46 on rtl839x.
-6. GS1900-8 and router hardware sweep.
-7. Revisit R5 only if captured hardware produces a real partial-attribute case.
-8. R10 packaging/POT work and R11 CI/build integration.
-9. Final current-master OpenWrt/LuCI review before upstream PRs.
+1. R1–R4, R6a–R6b, R7–R9 and R12 — implemented; R4/R6a/R6b are grounded in the
+   completed x86 software-bridge sweep.
+2. Run the current branch's `null-empty-dump` and new `empty-bridge-local`
+   fixtures in a ucode environment; the production null fix already passed the
+   older 28-group VM suite.
+3. Re-probe GS1920 generic RTM_GETLINK to live-verify D46 on rtl839x and capture
+   its bridge address shape.
+4. GS1900-8 and router hardware sweep.
+5. Revisit R5 only if captured hardware produces a real partial-attribute case.
+6. R10 packaging/POT work and R11 CI/build integration.
+7. Final current-master OpenWrt/LuCI review before upstream PRs.
 
 The plan is deliberately evidence-led. The x86 sweep both verified R4 and
 invalidated several plausible-looking assumptions; that is a reason to preserve
