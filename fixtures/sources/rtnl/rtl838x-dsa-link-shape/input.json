@@ -1,0 +1,35 @@
+{
+  "link_generic": {
+    "rows": [
+      { "ifname": "lan1", "master": "switch", "address": "02:38:00:00:00:01",
+        "linkinfo": { "type": "dsa", "slave": { "type": "bridge" } } },
+      { "ifname": "lan2", "master": "switch", "address": "02:38:00:00:00:02",
+        "linkinfo": { "type": "dsa", "slave": { "type": "bridge" } } },
+      { "ifname": "switch", "address": "02:38:00:00:00:01",
+        "linkinfo": { "type": "bridge" } },
+      { "ifname": "switch.20", "address": "02:38:00:00:00:01",
+        "linkinfo": { "type": "vlan", "id": 20 } }
+    ]
+  },
+  "link_bridge": {
+    "rows": [
+      { "ifname": "lan1", "master": "switch", "address": "02:38:00:00:00:01",
+        "af_spec": { "bridge": { "bridge_vlan_info": [
+          { "vid": 1, "flags": 0 }, { "vid": 12, "flags": 6 }, { "vid": 20, "flags": 0 }
+        ] } } },
+      { "ifname": "lan2", "master": "switch", "address": "02:38:00:00:00:02",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 12, "flags": 6 } ] } },
+      { "ifname": "switch", "master": "switch", "address": "02:38:00:00:00:01",
+        "af_spec": { "bridge": { "bridge_vlan_info": [
+          { "vid": 1, "flags": 0 }, { "vid": 12, "flags": 0 }, { "vid": 20, "flags": 0 }
+        ] } } }
+    ]
+  },
+  "neigh_bridge": { "rows": [] },
+  "neigh_inet": { "rows": [] },
+  "neigh_inet6": { "rows": [] },
+  "files": {
+    "/sys/class/net/switch/bridge/vlan_filtering": "1\n",
+    "/etc/ethers": "\n"
+  }
+}
