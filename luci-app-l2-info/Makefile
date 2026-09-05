@@ -5,7 +5,7 @@
 
 include $(TOPDIR)/rules.mk
 
-LUCI_TITLE:=LuCI support for l2-info
+LUCI_TITLE:=MAC & VLAN Lookup
 LUCI_DESCRIPTION:=Look up which MAC addresses are on which ports and VLANs on \
 this device, from a snapshot taken on request.
 LUCI_DEPENDS:=+luci-base +l2-info
