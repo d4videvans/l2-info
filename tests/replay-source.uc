@@ -37,7 +37,16 @@ function leaf(path) {
 function readjson(path) {
 	let raw = readfile(path);
 
-	return (raw != null) ? json(raw) : null;
+	if (raw == null)
+		return null;
+
+	try {
+		return json(raw);
+	}
+	catch (e) {
+		warn(`${path}: invalid JSON: ${e.message ?? e}\n`);
+		exit(2);
+	}
 }
 
 // Real kernel constant values, so a fixture records what the kernel actually
