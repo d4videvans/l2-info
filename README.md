@@ -60,9 +60,9 @@ is navigation, not a rival definition, and the owning document wins.
 ## Status
 
 Implemented, covered by fixtures, and run on real hardware. A GS1920-24 v1
-(rtl839x, kernel 6.18.44) assembles a full 28-port snapshot in about 1.3 s. Live
-validation on that switch exposed merge, reader, scope, hint and export defects
-(D40–D45), all of which are now represented in the design or fixtures.
+(rtl839x, kernel 6.18.44) assembles a full 28-port snapshot in about 1.2–1.3 s.
+Live validation on that switch exposed merge, reader, scope, hint and export
+defects (D40–D45), all of which are now represented in the design or fixtures.
 
 A later x86/64 OpenWrt software-bridge sweep verified empty-bridge handling
 (D46) and deliberately challenged several assumptions that had looked
@@ -73,11 +73,17 @@ removed (D47). The same sweep added bridge-device link addresses to the
 reported vocabulary so the device's own FDB observations can be recognised by
 an exact reported-value join, including for an empty bridge.
 
-D46's bridge-identity mechanism has since been cross-checked again on the real
-GS1920-24 v1: generic RTM_GETLINK identifies its `switch` interface as
-`linkinfo.type == "bridge"`, while the AF_BRIDGE view exposes the same bridge
-self-mastered. This independently confirms the identity/membership split on
-rtl839x rather than only on a software bridge.
+D46 and D47 have since been cross-checked again on the real GS1920-24 v1.
+Generic RTM_GETLINK identifies its `switch` interface as
+`linkinfo.type == "bridge"` and supplies its link address; AF_BRIDGE exposes the
+same bridge self-mastered. With the current backend, `br.address` is present,
+matching FDB observations are marked local, and the removed provenance-split
+fields stay absent.
+
+The current ucode/mechanical suite has also run on that GS1920 checkout: all 30
+groups pass, including the `null-empty-dump` (D48) and `empty-bridge-local`
+(D47) regression fixtures. Browser-side hint/export/query/diff unit tests are
+still skipped on targets without Node and remain a CI task.
 
 `sh tests/run.sh` discovers and replays fixtures across source, discovery and
 device seams and runs the mechanical checks that enforce the principles. With
@@ -118,8 +124,9 @@ ssh root@dev 'time ubus call l2-info snapshot'
 ```
 
 `tools/install-dev-backend.sh` is a development helper, not a package-manager
-replacement. It copies the backend files from the current checkout, reloads
-rpcd and verifies that the ubus object re-registers; it does not trigger a
+replacement. It installs/reloads the core before replacing the dynamically
+loaded reader, avoiding a transient new-reader/old-assembler contract mismatch;
+it then verifies that the ubus object re-registers. It does not trigger a
 snapshot automatically.
 
 ## Relation to bearings
