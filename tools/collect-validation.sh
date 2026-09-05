@@ -37,6 +37,9 @@ or forwarding state.
 Git is not required on the target. source-hashes.txt and installed-hashes.txt
 record the exact copied and installed backend file contents when sha256sum is
 available, so a copied/archive checkout still has reproducible code provenance.
+Runtime ucode module availability is recorded separately because the fixture
+suite can pass with mocked source inputs even when a live target dependency is
+missing.
 EOF
 
 record() {
@@ -77,6 +80,19 @@ hash_if_present() {
 	done
 }
 
+check_ucode_module() {
+	module=$1
+	out=$2
+
+	if ucode -e "require('$module')" >/dev/null 2>&1; then
+		printf '%s=ok\n' "$module" >>"$out"
+		printf 'ok   ucode module %s\n' "$module" >>"$STATUS"
+	else
+		printf '%s=missing\n' "$module" >>"$out"
+		printf 'FAIL ucode module %s (not loadable)\n' "$module" >>"$STATUS"
+	fi
+}
+
 printf 'l2-info validation capture\n' >"$OUT/meta.txt"
 printf 'captured_utc=%s\n' "$STAMP" >>"$OUT/meta.txt"
 printf 'checkout_root=%s\n' "$ROOT" >>"$OUT/meta.txt"
@@ -97,6 +113,15 @@ if command -v sha256sum >/dev/null 2>&1; then
 		/usr/share/l2-info/readers/rtnl.uc
 else
 	printf 'SKIP source/installed hashes (sha256sum not found)\n' >>"$STATUS"
+fi
+
+if command -v ucode >/dev/null 2>&1; then
+	: >"$OUT/runtime-modules.txt"
+	check_ucode_module fs "$OUT/runtime-modules.txt"
+	check_ucode_module rtnl "$OUT/runtime-modules.txt"
+	check_ucode_module ubus "$OUT/runtime-modules.txt"
+else
+	printf 'SKIP runtime ucode module checks (ucode not found)\n' >>"$STATUS"
 fi
 
 if command -v ubus >/dev/null 2>&1; then
