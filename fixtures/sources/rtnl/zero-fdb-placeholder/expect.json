@@ -1,0 +1,16 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges":    { "status": "ok" },
+    "ports":      { "status": "ok" },
+    "fdb":        { "status": "ok" },
+    "neighbours": { "status": "ok" },
+    "names":      { "status": "ok", "note": "read /etc/ethers; no address to name mappings in them" }
+  },
+  "row_counts": { "bridges": 1, "ports": 1, "fdb": 1, "neighbours": 0, "names": 0 },
+  "rows": [
+    { "subject": { "mac": "00:00:00:00:00:00" }, "absent_row": true },
+    { "subject": { "mac": "aa:bb:cc:50:00:01" }, "collection": "fdb",
+      "attrs": { "fdb.port": "lan1", "fdb.vlan": 66, "fdb.flags": ["self"] } }
+  ]
+}
