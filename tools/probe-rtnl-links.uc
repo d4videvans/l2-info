@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// Development-only, read-only probe for R4 in docs/remediation.md.
+// Development-only, read-only probe for bridge/link rtnetlink behaviour.
 //
 // It records just enough of RTM_GETLINK to establish how bridge identity is
-// exposed by ucode-mod-rtnl. It performs no writes and deliberately omits
-// interface hardware addresses and unrelated link attributes.
+// exposed by ucode-mod-rtnl. Interface hardware addresses are deliberately not
+// emitted. Instead the probe records whether an address was present and, when
+// sysfs exposes the same interface address, whether the two values agree. This
+// lets D47's bridge-address input be verified without putting a real MAC in a
+// capture.
 //
 // Run on an OpenWrt target with ucode-mod-rtnl installed:
 //
@@ -22,6 +25,20 @@ const RTEXT_FILTER_BRVLAN_COMPRESSED = 0x04;
 
 let nl = require('rtnl');
 
+function macfmt(mac) {
+	let h = lc(replace(mac ?? '', /[^0-9A-Fa-f]/g, ''));
+
+	if (length(h) != 12)
+		return null;
+
+	let out = [];
+
+	for (let i = 0; i < 12; i += 2)
+		push(out, substr(h, i, 2));
+
+	return join(':', out);
+}
+
 function dump(payload) {
 	let rows = nl.request(nl.const.RTM_GETLINK, nl.const.NLM_F_DUMP, payload);
 	let err = nl.error();
@@ -29,17 +46,23 @@ function dump(payload) {
 	if (err != null)
 		return { error: err, rows: [] };
 
-	if (rows == null)
-		return { error: 'netlink dump returned no result and no error', rows: [] };
-
-	return { rows };
+	// ucode-mod-rtnl leaves the result null for a successful zero-row dump;
+	// error state is independent (D48).
+	return { error: null, rows: rows ?? [] };
 }
 
 function shape(l) {
+	let name = l.ifname ?? l.dev ?? null;
+	let address = macfmt(l.address);
+	let sysfs_address = name ? macfmt(readfile(`/sys/class/net/${name}/address`)) : null;
 	let out = {
-		name: l.ifname ?? l.dev ?? null,
+		name,
 		master: l.master ?? null,
-		linkinfo: l.linkinfo ?? null
+		linkinfo: l.linkinfo ?? null,
+		address_present: address != null,
+		address_matches_sysfs: (address != null && sysfs_address != null)
+			? address == sysfs_address
+			: null
 	};
 
 	let bridge = l.af_spec?.bridge;
