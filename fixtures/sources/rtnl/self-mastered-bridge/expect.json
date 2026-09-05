@@ -10,7 +10,8 @@
   "row_counts": { "bridges": 1, "ports": 3, "fdb": 4, "neighbours": 1, "names": 0 },
   "rows": [
     { "subject": { "bridge": "switch" },
-      "attrs": { "br.name": "switch", "br.vlan_filtering": true } },
+      "attrs": { "br.name": "switch", "br.vlan_filtering": true,
+                 "br.address": "02:8b:f3:fc:bb:75" } },
 
     { "subject": { "port": "switch" }, "absent_row": true },
 
