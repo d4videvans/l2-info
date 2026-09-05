@@ -91,20 +91,26 @@ a = snap([]); b = snap([]); b.version = 2;
 assert('format version change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'format-version'));
 
 a = snap([]); b = snap([]); b.scope.fdb.status = 'unavailable';
-assert('collection status change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-status' && x.collection === 'fdb'));
+assert('fdb status change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-status' && x.collection === 'fdb'));
+
+a = snap([]); b = snap([]); b.scope.bridges.status = 'unavailable';
+assert('bridge status change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-status' && x.collection === 'bridges'));
 
 a = snap([]); b = snap([]); b.scope.fdb.note = 'extra: unavailable';
 assert('relevant collection coverage note blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-coverage' && x.collection === 'fdb'));
+
+a = snap([]); b = snap([]); b.scope.bridges.note = 'partial bridge evidence';
+assert('bridge coverage note blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'collection-coverage' && x.collection === 'bridges'));
 
 a = snap([]); b = snap([]); b.scope.names.note = 'rtnl: read /tmp/dhcp.leases';
 assert('names coverage does not block fdb diff', mod.scopeCompatible(a, b).length === 0);
 
 a = snap([], {
-	rtnl: { status: 'ok', api: 1, provides: [ 'fdb' ] },
+	rtnl: { status: 'ok', api: 1, provides: [ 'bridges', 'ports', 'fdb' ] },
 	names: { status: 'unavailable', api: 1, provides: [ 'names' ], reason: 'missing' }
 });
 b = snap([], {
-	rtnl: { status: 'ok', api: 1, provides: [ 'fdb' ] },
+	rtnl: { status: 'ok', api: 1, provides: [ 'bridges', 'ports', 'fdb' ] },
 	names: { status: 'ok', api: 1, provides: [ 'names' ] }
 });
 assert('names-only reader change does not block fdb diff', mod.scopeCompatible(a, b).length === 0);
@@ -118,5 +124,15 @@ b = snap([], {
 	extra: { status: 'unavailable', api: 1, provides: [ 'fdb' ], reason: 'failed' }
 });
 assert('relevant reader coverage change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'reader-coverage'));
+
+a = snap([], {
+	rtnl: { status: 'ok', api: 1, provides: [ 'ports', 'fdb' ] },
+	bridge: { status: 'ok', api: 1, provides: [ 'bridges' ] }
+});
+b = snap([], {
+	rtnl: { status: 'ok', api: 1, provides: [ 'ports', 'fdb' ] },
+	bridge: { status: 'unavailable', api: 1, provides: [ 'bridges' ], reason: 'failed' }
+});
+assert('bridge reader coverage change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'reader-coverage'));
 
 process.exit(failures ? 1 : 0);
