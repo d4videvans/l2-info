@@ -79,23 +79,31 @@ function dump(nl, cmd, payload) {
 
 // Bridge identity and bridge membership are different facts and come from two
 // views of RTM_GETLINK (D46). The generic dump exposes IFLA_INFO_KIND as
-// linkinfo.type and therefore identifies a bridge from the device itself. The
-// AF_BRIDGE dump supplies port membership and live VLAN membership; on current
-// x86 OpenWrt it deliberately has linkinfo == null and a bridge may appear as
-// its own master, so master references are not used to establish identity.
+// linkinfo.type and therefore identifies a bridge from the device itself. It
+// also reports the bridge link's own address. The AF_BRIDGE dump supplies port
+// membership and live VLAN membership; on current x86 OpenWrt it deliberately
+// has linkinfo == null and a bridge may appear as its own master, so master
+// references are not used to establish identity.
 function read_links(nl) {
 	let generic = dump(nl, nl.const.RTM_GETLINK, {});
 
 	if (generic.error)
 		return { error: `generic link dump: ${generic.error}` };
 
-	let bridges = {};
+	let bridges = {}, bridge_addresses = {};
 
 	for (let l in generic.rows) {
 		let name = l.ifname ?? l.dev;
 
-		if (name && l.linkinfo?.type == 'bridge')
-			bridges[name] = 0;
+		if (!name || l.linkinfo?.type != 'bridge')
+			continue;
+
+		bridges[name] = 0;
+
+		let address = macfmt(l.address);
+
+		if (address != null)
+			bridge_addresses[name] = address;
 	}
 
 	let d = dump(nl, nl.const.RTM_GETLINK, {
@@ -174,7 +182,7 @@ function read_links(nl) {
 		bridges[p.master]++;
 	}
 
-	return { ports, bridges };
+	return { ports, bridges, bridge_addresses };
 }
 
 function port_rows(links) {
@@ -216,7 +224,8 @@ function port_rows(links) {
 }
 
 // VLAN filtering is read from the bridge's own state, never inferred from
-// whether any VLAN ids happened to be seen (P4).
+// whether any VLAN ids happened to be seen (P4). The bridge's own link address
+// comes from the generic RTM_GETLINK identity view (D47).
 function bridge_rows(fs, links) {
 	let rows = [], unknown = [];
 
@@ -224,6 +233,9 @@ function bridge_rows(fs, links) {
 		let attrs = { 'br.name': name };
 		let filtering = null;
 		let raw = fs.readfile(`/sys/class/net/${name}/bridge/vlan_filtering`);
+
+		if (links.bridge_addresses?.[name] != null)
+			attrs['br.address'] = links.bridge_addresses[name];
 
 		if (raw != null && trim(raw) != '')
 			filtering = (int(trim(raw)) == 1);
@@ -261,8 +273,9 @@ function fdb_rows(nl) {
 		if (e.vlan != null)
 			attrs['fdb.vlan'] = e.vlan;
 
-		// Absent for a DSA hardware entry: dsa_user_port_fdb_do_dump()
-		// emits NDA_LLADDR and NDA_VLAN only.
+		// Some FDB observations carry the master bridge and some do not. That
+		// distinction is reported as-is; it is not portable evidence of
+		// hardware/software provenance (D47).
 		if (e.master != null)
 			attrs['fdb.bridge'] = e.master;
 
@@ -409,7 +422,7 @@ return {
 			for (let c in [ 'bridges', 'ports' ])
 				collections[c] = { status: 'unavailable', reason: links.error };
 
-			links = { ports: [], bridges: {} };
+			links = { ports: [], bridges: {}, bridge_addresses: {} };
 		}
 		else {
 			let br = bridge_rows(ctx.fs, links);
