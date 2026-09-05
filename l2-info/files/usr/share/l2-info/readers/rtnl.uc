@@ -61,7 +61,10 @@ function fdb_flags(nl, state, flags) {
 }
 
 // Single seam for every netlink read, so a failure is never indistinguishable
-// from an empty table (D18) and so fixture replay is total.
+// from an empty table (D18) and so fixture replay is total. ucode-mod-rtnl's
+// multipart request result stays null when a dump completes successfully with
+// zero valid rows; nl.error() is the independent error channel. Null plus no
+// error therefore means an empty successful dump, not failure.
 function dump(nl, cmd, payload) {
 	let rows = nl.request(cmd, nl.const.NLM_F_DUMP, payload);
 	let err = nl.error();
@@ -69,10 +72,7 @@ function dump(nl, cmd, payload) {
 	if (err != null)
 		return { error: err };
 
-	if (rows == null)
-		return { error: 'netlink dump returned no result and no error' };
-
-	return { rows };
+	return { rows: rows ?? [] };
 }
 
 // ---------------------------------------------------------------- collections
