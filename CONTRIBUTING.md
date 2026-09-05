@@ -31,6 +31,22 @@ Using `sh tests/run.sh` is deliberate even if the executable bit is present in
 a git checkout: it also works after zip/archive round-trips which may not
 preserve that bit.
 
+## Testing the LuCI view from a copied checkout
+
+The target device does not need git for UI work either. Copy a current checkout
+to the device, then install the backend and view directly from that directory:
+
+```sh
+cd /tmp/l2-info                  # or wherever the checkout was copied
+sh tools/install-dev-backend.sh
+sh tools/install-dev-luci.sh
+```
+
+`install-dev-luci.sh` copies the view, its helper modules, menu entry and
+read-only ACL, then invalidates LuCI's menu/module caches and reloads rpcd. It is
+a development helper rather than a package-manager replacement. Refresh LuCI
+and open **Status -> MAC & VLAN Lookup** after it completes.
+
 ## Two things that will get a change sent back
 
 **A fixture that supplies a value without asserting it.** That looks like
