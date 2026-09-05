@@ -10,6 +10,6 @@
   "row_counts": { "bridges": 1, "ports": 0, "fdb": 0, "neighbours": 0, "names": 0 },
   "rows": [
     { "subject": { "bridge": "br-empty" }, "collection": "bridges",
-      "attrs": { "br.name": "br-empty", "br.vlan_filtering": false } }
+      "attrs": { "br.name": "br-empty", "br.address": "02:00:00:00:00:01", "br.vlan_filtering": false } }
   ]
 }
