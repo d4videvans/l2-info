@@ -1,6 +1,6 @@
 # l2-info v0.1.0-rc1 — release notes
 
-**Status:** proposed first public pre-upstream test release.
+**Status:** first public pre-upstream test release.
 
 This release candidate is intended to put `l2-info` in front of OpenWrt users
 on a wider range of hardware before the backend and LuCI application are
