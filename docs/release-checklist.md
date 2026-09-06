@@ -22,10 +22,10 @@ OpenWrt packages and LuCI submissions.
 - [ ] `main` contains the candidate state before the public test release is
   tagged.
 
-The current remediation branch is intended to be merged normally rather than
-squashed: its commits contain useful hardware-validation and remediation
-history. A merge commit gives `main` a clear release-readiness boundary while
-preserving that evidence.
+Integrate the reviewed candidate into `main` in a way that leaves a clear
+release-readiness boundary. The exact merge strategy is a repository-history
+choice rather than a release requirement; the release tag is the authoritative
+identity of the public candidate.
 
 ## 2. Smoke-test the user path
 
@@ -67,13 +67,12 @@ addresses and host names.
 
 Only after the candidate CI and smoke test are green:
 
-- [ ] Merge `remediation/upstream-hardening-v2` into `main` with a normal merge
-  commit; do not squash the validation/remediation history.
+- [ ] Integrate the reviewed candidate into `main` and record the resulting
+  release commit.
 - [ ] Confirm the `main` README presents the pre-upstream test install as the
   front-door path.
 - [ ] Confirm CI is green on the resulting `main` commit.
-- [ ] Tag that exact commit as the release candidate (proposed:
-  `v0.1.0-rc1`).
+- [ ] Tag that exact commit as the release candidate (`v0.1.0-rc1`).
 - [ ] Use the tag, not a moving branch name, in public tester instructions.
 - [ ] Use `docs/release-notes-v0.1.0-rc1.md` as the factual basis for any GitHub
   release notes or announcement text.
