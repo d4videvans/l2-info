@@ -17,6 +17,10 @@ The LuCI page is **Status → MAC & VLAN Lookup**.
 > not yet been submitted to the OpenWrt package feeds. The installation method
 > below is therefore a reversible test install from this repository.
 
+![MAC & VLAN Lookup in LuCI using synthetic demonstration data](docs/images/l2-info-synthetic-demo.png)
+
+*LuCI view using synthetic demonstration data; no live network identifiers are shown.*
+
 ## What it does — and does not do
 
 Press **Update snapshot** and the backend reads the device's live bridge,
