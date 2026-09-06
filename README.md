@@ -71,6 +71,27 @@ installed.
 For step-by-step installation, updating, troubleshooting and privacy notes, see
 [`docs/getting-started.md`](docs/getting-started.md).
 
+### Safe screenshots with synthetic data
+
+For screenshots or demonstrations, install the ordinary test build first, then
+add the separate synthetic demo surface:
+
+```sh
+sh tools/install-screenshot-demo.sh
+```
+
+Refresh LuCI and open **Status → MAC & VLAN Lookup (synthetic demo)**. That page
+uses only repository-supplied synthetic MACs, documentation-range IP addresses
+and demo VLANs; the ordinary page remains connected to the live device. Remove
+the demo surface with:
+
+```sh
+sh tools/uninstall-screenshot-demo.sh
+```
+
+The getting-started guide explains the separation and how to edit the harmless
+demo values if a different screenshot would be clearer.
+
 ## Hardware validation so far
 
 The current design has been exercised on deliberately different OpenWrt
@@ -133,9 +154,8 @@ Start with the document that matches what you are trying to do:
 - **Consume the JSON snapshot:** [`docs/snapshot-format.md`](docs/snapshot-format.md)
 - **Understand or add a reader:** [`docs/readers.md`](docs/readers.md)
 - **Add hardware evidence/fixtures:** [`docs/fixtures.md`](docs/fixtures.md)
-- **See current design decisions:** [`docs/decisions.md`](docs/decisions.md)
-- **See detailed decision history:** [`docs/decisions-history.md`](docs/decisions-history.md)
-- **See upstream-hardening status and hardware matrix:** [`docs/remediation.md`](docs/remediation.md)
+- **See why design choices were made:** [`docs/decisions.md`](docs/decisions.md)
+- **See the upstream-hardening history and hardware matrix:** [`docs/remediation.md`](docs/remediation.md)
 
 ## Feedback
 

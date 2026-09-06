@@ -28,7 +28,7 @@ treated as new validation rather than assumed support.
 
 The installer:
 
-1. checks that the required rpcd/ucode runtime components can be loaded;
+1. checks that the required ucode runtime modules can be loaded;
 2. copies the backend under `/usr/share/rpcd/ucode` and `/usr/share/l2-info`;
 3. reloads `rpcd` so the `l2-info` ubus object is registered;
 4. if LuCI is present, copies the LuCI JavaScript, menu and read-only ACL and
@@ -113,6 +113,46 @@ The page then lets you:
 The age shown beside the snapshot continues to increase, but that timer does
 not poll or refresh the device.
 
+## Safe screenshots and demonstrations
+
+A normal snapshot contains real network identifiers. For screenshots, do not
+try to edit a live page or publish a live export. Instead install the separate
+synthetic demo surface after the ordinary test install:
+
+```sh
+cd /tmp/l2-info
+sh tools/install-screenshot-demo.sh
+```
+
+Refresh LuCI and open:
+
+**Status → MAC & VLAN Lookup (synthetic demo)**
+
+This creates a second, temporary `l2-info-demo` ubus object and a second LuCI
+view. It does **not** replace the normal `l2-info` object or modify the ordinary
+page. The demo snapshot contains only clearly synthetic values:
+
+- locally administered `02:00:00:...` MAC addresses;
+- RFC documentation addresses from `192.0.2.0/24`;
+- VLANs 10, 20 and 30;
+- names such as `demo-laptop` and `demo-printer`;
+- device identity `Synthetic l2-info demo` / `demo/synthetic`.
+
+The synthetic snapshot lives in `tools/demo-snapshot.uc`. It can be edited in
+the copied checkout before installation if a different harmless example would
+make a better screenshot. Keep it synthetic; never paste live values into that
+file and commit them.
+
+Remove only the demo surface with:
+
+```sh
+sh tools/uninstall-screenshot-demo.sh
+```
+
+The real test installation is left untouched. `tools/uninstall-test.sh` also
+removes the demo surface first when it is present, so a complete cleanup does
+not leave a broken demo menu entry behind.
+
 ### Command line / headless device
 
 The backend is independent of LuCI:
@@ -155,10 +195,6 @@ caches used by this app, and reloads `rpcd`.
 
 It does **not** remove `rpcd-mod-ucode` or the `ucode-mod-*` dependencies. They
 are shared OpenWrt packages and may be used by other software.
-
-Use this uninstall only for the copied-checkout test install; once a future
-package-manager version is installed, remove that through the package manager
-instead.
 
 ## What results mean
 

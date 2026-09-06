@@ -56,6 +56,11 @@ jobs:
           find tools tests -type f -name '*.sh' -print0 \
             | xargs -0 -n1 sh -n
 
+      - name: Validate synthetic demo ucode
+        run: |
+          test "$(ucode -e 'let s = loadfile("tools/demo-snapshot.uc")(); print(s.format)')" = l2-info.snapshot
+          test "$(ucode -e 'let p = loadfile("tools/demo-backend.uc")(); print(type(p["l2-info-demo"].snapshot.call))')" = function
+
       - name: Validate fixture JSON
         run: |
           find fixtures -type f -name '*.json' -print0 \

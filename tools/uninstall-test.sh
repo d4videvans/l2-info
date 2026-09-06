@@ -13,6 +13,18 @@ fail() {
 
 [ "$(id -u)" -eq 0 ] || fail "must be run as root on the target OpenWrt device"
 
+# Remove the optional synthetic screenshot surface first so it cannot be left
+# referring to LuCI helper files this full uninstall is about to remove.
+if [ -f /usr/share/rpcd/ucode/l2-info-demo ] || \
+   [ -f /www/luci-static/resources/view/l2-info/demo.js ]; then
+	ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+	if [ -f "$ROOT/tools/uninstall-screenshot-demo.sh" ]; then
+		sh "$ROOT/tools/uninstall-screenshot-demo.sh"
+	else
+		fail "synthetic demo is installed but uninstall-screenshot-demo.sh is missing"
+	fi
+fi
+
 FILES="
 /usr/share/rpcd/ucode/l2-info
 /usr/share/l2-info/assemble.uc
