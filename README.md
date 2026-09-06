@@ -155,6 +155,7 @@ Start with the document that matches what you are trying to do:
 - **Understand or add a reader:** [`docs/readers.md`](docs/readers.md)
 - **Add hardware evidence/fixtures:** [`docs/fixtures.md`](docs/fixtures.md)
 - **See why design choices were made:** [`docs/decisions.md`](docs/decisions.md)
+- **See post-RC ideas that are deliberately out of current scope:** [`docs/roadmap.md`](docs/roadmap.md)
 - **See the upstream-hardening history and hardware matrix:** [`docs/remediation.md`](docs/remediation.md)
 
 ## Feedback
