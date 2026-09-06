@@ -1,11 +1,11 @@
 # Getting started
 
-This is the practical guide for trying `l2-info` **before it is available in the
+This is the practical guide for trying `l2-info` **as it is not available in the
 official OpenWrt feeds**.
 
-The test install copies the same backend and LuCI files that the future packages
-will contain, but it bypasses the package manager. It is intended for evaluation
-and hardware testing, not as the permanent distribution mechanism.
+The test install copies the same backend and LuCI files that potential future
+packages will contain, but it bypasses the package manager. It is intended for
+evaluation and hardware testing, not as the permanent distribution mechanism.
 
 ## Before you start
 
