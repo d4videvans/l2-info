@@ -109,8 +109,11 @@ jobs:
 
       - name: Build both intended upstream packages in official SDK
         run: |
+          mkdir -p "$PWD/.ci-logs"
+          chmod 0777 "$PWD/.ci-logs"
           docker run --rm \
             -v "$PWD:/workspace:ro" \
+            -v "$PWD/.ci-logs:/ci-logs" \
             openwrt/sdk:x86_64-master \
             bash -lc '
               set -eux
@@ -130,7 +133,7 @@ jobs:
               build_target() {
                 name="$1"
                 target="$2"
-                log="/tmp/${name}.log"
+                log="/ci-logs/${name}.log"
 
                 set +e
                 make "$target" V=s -j"$(nproc)" 2>&1 | tee "$log"
@@ -150,3 +153,12 @@ jobs:
               build_target l2-info package/l2-info/compile
               build_target luci-app-l2-info package/feeds/luci/luci-app-l2-info/compile
             '
+
+      - name: Upload SDK failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-failure-logs
+          path: .ci-logs/*.log
+          if-no-files-found: warn
+          retention-days: 7
