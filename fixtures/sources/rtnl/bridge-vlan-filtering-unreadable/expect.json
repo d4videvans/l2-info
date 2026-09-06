@@ -1,0 +1,27 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges": {
+      "status": "ok",
+      "note": "VLAN filtering state unreadable for: br-lan"
+    }
+  },
+  "row_counts": {
+    "bridges": 1,
+    "ports": 1
+  },
+  "rows": [
+    {
+      "collection": "bridges",
+      "subject": {
+        "bridge": "br-lan"
+      },
+      "attrs": {
+        "br.address": "02:00:00:00:00:10"
+      },
+      "absent": [
+        "br.vlan_filtering"
+      ]
+    }
+  ]
+}

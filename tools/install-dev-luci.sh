@@ -18,17 +18,21 @@ fail() {
 [ -d /www/luci-static/resources ] || fail "LuCI resources directory not found; is luci-base installed?"
 [ -x /etc/init.d/rpcd ] || fail "/etc/init.d/rpcd not found"
 
+# Relative source path and absolute target path. The same manifest drives both
+# preflight validation and copying so adding/removing a shipped file cannot
+# update one list while silently forgetting the other.
 FILES="
-htdocs/luci-static/resources/view/l2-info/main.js
-htdocs/luci-static/resources/l2-info/hints.js
-htdocs/luci-static/resources/l2-info/query.js
-htdocs/luci-static/resources/l2-info/diff.js
-root/usr/share/luci/menu.d/luci-app-l2-info.json
-root/usr/share/rpcd/acl.d/luci-app-l2-info.json
+htdocs/luci-static/resources/view/l2-info/main.js:/www/luci-static/resources/view/l2-info/main.js
+htdocs/luci-static/resources/l2-info/hints.js:/www/luci-static/resources/l2-info/hints.js
+htdocs/luci-static/resources/l2-info/query.js:/www/luci-static/resources/l2-info/query.js
+htdocs/luci-static/resources/l2-info/diff.js:/www/luci-static/resources/l2-info/diff.js
+root/usr/share/luci/menu.d/luci-app-l2-info.json:/usr/share/luci/menu.d/luci-app-l2-info.json
+root/usr/share/rpcd/acl.d/luci-app-l2-info.json:/usr/share/rpcd/acl.d/luci-app-l2-info.json
 "
 
-for f in $FILES; do
-	[ -f "$APP/$f" ] || fail "missing source file: $APP/$f"
+for entry in $FILES; do
+	src=${entry%%:*}
+	[ -f "$APP/$src" ] || fail "missing source file: $APP/$src"
 done
 
 mkdir -p \
@@ -47,25 +51,20 @@ copy_atomic() {
 	mv "$tmp" "$dst"
 }
 
-copy_atomic "$APP/htdocs/luci-static/resources/view/l2-info/main.js" \
-	/www/luci-static/resources/view/l2-info/main.js
-copy_atomic "$APP/htdocs/luci-static/resources/l2-info/hints.js" \
-	/www/luci-static/resources/l2-info/hints.js
-copy_atomic "$APP/htdocs/luci-static/resources/l2-info/query.js" \
-	/www/luci-static/resources/l2-info/query.js
-copy_atomic "$APP/htdocs/luci-static/resources/l2-info/diff.js" \
-	/www/luci-static/resources/l2-info/diff.js
-copy_atomic "$APP/root/usr/share/luci/menu.d/luci-app-l2-info.json" \
-	/usr/share/luci/menu.d/luci-app-l2-info.json
-copy_atomic "$APP/root/usr/share/rpcd/acl.d/luci-app-l2-info.json" \
-	/usr/share/rpcd/acl.d/luci-app-l2-info.json
+for entry in $FILES; do
+	src=${entry%%:*}
+	dst=${entry#*:}
+	copy_atomic "$APP/$src" "$dst"
+done
 
 # Match luci.mk's package post-install cache invalidation closely enough for a
-# copied-checkout development update. The menu and ACL are then re-read after
-# rpcd reload / the next LuCI request rather than leaving stale cached state.
+# copied-checkout development update, then reload rpcd. An already logged-in
+# browser session can still show its previous navigation; the tester guidance
+# therefore treats a fresh LuCI login as the reliable menu-state check.
 rm -f /tmp/luci-indexcache.*
 rm -rf /tmp/luci-modulecache/
 /etc/init.d/rpcd reload 2>/dev/null || fail "rpcd reload failed"
 
 echo "l2-info development LuCI files installed from: $ROOT"
 echo "Refresh LuCI and open Status -> MAC & VLAN Lookup"
+echo "If the menu is stale, log out of LuCI and back in."

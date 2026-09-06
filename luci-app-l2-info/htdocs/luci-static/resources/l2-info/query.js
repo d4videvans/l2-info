@@ -68,12 +68,9 @@ function filterRows(snap, q) {
 	var parsed = parseQuery(q);
 
 	if (parsed.errors.length)
-		return { rows: [], query: parsed };
+		return { rows: [], populationCount: 0, hiddenNonUnicast: 0, query: parsed };
 
-	var rows = (snap.fdb || []).filter(function(r) {
-		if (!parsed.nonUnicast && r.derived.mac_class != 'unicast')
-			return false;
-
+	var population = (snap.fdb || []).filter(function(r) {
 		if (parsed.port && r.attrs['fdb.port'] != parsed.port)
 			return false;
 
@@ -86,7 +83,19 @@ function filterRows(snap, q) {
 		return true;
 	});
 
-	return { rows: rows, query: parsed };
+	var hidden = population.filter(function(r) {
+		return r.derived.mac_class != 'unicast';
+	}).length;
+	var rows = parsed.nonUnicast ? population : population.filter(function(r) {
+		return r.derived.mac_class == 'unicast';
+	});
+
+	return {
+		rows: rows,
+		populationCount: population.length,
+		hiddenNonUnicast: parsed.nonUnicast ? 0 : hidden,
+		query: parsed
+	};
 }
 
 return baseclass.extend({

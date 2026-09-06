@@ -1,7 +1,7 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:184
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:188
 msgid ""
 "%d address observation(s) are listed more than once on the same port with "
 "different forwarding-table details. They are kept separate because l2-info "
@@ -9,13 +9,13 @@ msgid ""
 "are the same entry."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:160
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:162
 msgid ""
 "%d address(es) appear on more than one port: %s. A client that has just "
 "moved, a link aggregation, or a bridging loop all produce this."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:347
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:345
 msgid "%d assembled from %d raw rows"
 msgstr ""
 
@@ -39,11 +39,11 @@ msgstr ""
 msgid "%d forwarding observations"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:480
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:502
 msgid "%d h ago"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:479
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:501
 msgid "%d min ago"
 msgstr ""
 
@@ -51,58 +51,58 @@ msgstr ""
 msgid "%d ms"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:282
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:279
 msgid "%d multicast or protocol addresses are hidden."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:279
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:276
 msgid "%d of %d forwarding entries shown."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:89
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:91
 msgid ""
 "%d of the addresses shown arrived untagged. The forwarding database records "
 "no VLAN for those, so the VLAN column shows the port's own native VLAN and "
 "is marked accordingly."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:478
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:500
 msgid "%d s ago"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:196
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:200
 msgid ""
 "%d value(s) are reported differently by different readers and are shown as "
 "disputed rather than resolved. Nothing here picks a winner."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:128
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:130
 msgid ""
 "%s carries %d VLANs and has no native VLAN, so everything on it is tagged. "
 "That shape is typical of a link to another managed switch, or of a single "
 "tagged link to a router."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:387
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:385
 msgid "%s coverage details"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:106
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:108
 msgid ""
 "%s has %d addresses behind it. That is usually an unmanaged switch or hub, "
 "but a hypervisor bridging guest machines or a desk phone with a PC "
 "passthrough port looks the same from here."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:136
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:144
 msgid "%s is disputed:"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:384
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:382
 msgid "%s status (%s → %s)"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:109
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:117
 msgid "(native)"
 msgstr ""
 
@@ -114,8 +114,8 @@ msgstr ""
 msgid "1 bridge, 1 port"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:614
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:666
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:638
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:690
 msgid "Actions"
 msgstr ""
 
@@ -123,78 +123,82 @@ msgstr ""
 msgid "Available"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:285
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:296
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:282
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:293
 msgid "Bridge"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:354
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:352
 msgid "Bridge %s"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:161
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:32
 msgid "Bridges"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:433
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:455
 msgid "Change"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:646
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:670
 msgid "Changes since the previous snapshot"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:426
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:448
 msgid ""
 "Comparing %s with %s. \"Moved\" is inferred only when one remote unicast "
 "address leaves exactly one port and appears on exactly one other port."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:626
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:650
 msgid "Device and data-source details"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:681
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:341
+msgid "Device metadata"
+msgstr ""
+
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:705
 msgid "Download JSON"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:634
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:658
 msgid ""
 "Filter the current snapshot by any combination of port, VLAN or MAC address. "
 "This does not read the hardware again."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:632
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:656
 msgid "Find addresses"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:285
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:282
 msgid "Flags"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:163
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:34
 msgid "Forwarding database"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:347
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:345
 msgid "Forwarding observations"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:285
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:282
 msgid "Host / IP"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:206
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:210
 msgid ""
 "Host names are blank because this device has no DHCP leases and no /etc/"
 "ethers. That is normal on a switch; the names live wherever DHCP runs."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:346
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:344
 msgid "Kernel"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:685
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:709
 msgid "Last snapshot"
 msgstr ""
 
@@ -202,17 +206,17 @@ msgstr ""
 msgid "Likely:"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:299
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:296
 msgid "Link"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:285
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:433
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:614
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:282
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:455
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:638
 msgid "MAC"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:659
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:683
 #: applications/luci-app-l2-info/root/usr/share/luci/menu.d/luci-app-l2-info.json:3
 msgid "MAC & VLAN Lookup"
 msgstr ""
@@ -227,31 +231,27 @@ msgstr ""
 msgid "MAC search is longer than a 48-bit MAC address."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:301
-msgid "MACs"
-msgstr ""
-
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:640
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:664
 msgid "Matching addresses"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:344
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:342
 msgid "Model"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:614
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:638
 msgid "Multicast / protocol"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:165
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:36
 msgid "Names"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:164
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:35
 msgid "Neighbours"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:75
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:77
 msgid ""
 "No bridge on this device has VLAN filtering enabled. Bridge VLAN filtering "
 "is therefore not providing VLAN separation here. Values marked native come "
@@ -260,11 +260,11 @@ msgid ""
 "VLAN interfaces and separate bridges."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:622
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:646
 msgid "No filters available."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:430
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:452
 msgid "No forwarding changes."
 msgstr ""
 
@@ -275,48 +275,48 @@ msgid ""
 "this is recorded as undetermined rather than empty."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:286
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:283
 msgid "No matching entries."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:329
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:326
 msgid "No ports reported."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:433
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:455
 msgid "Note"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:433
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:455
 msgid "Nothing changed."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:61
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js:63
 msgid ""
 "Nothing installed on this device can read: %s. Installing a reader package "
 "adds that capability."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:376
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:374
 msgid "Nothing reported."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:285
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:296
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:433
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:614
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:282
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:293
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:455
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:638
 msgid "Port"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:162
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:33
 msgid "Ports"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:651
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:675
 msgid "Ports and VLANs"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:376
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:374
 msgid "Property"
 msgstr ""
 
@@ -324,45 +324,53 @@ msgstr ""
 msgid "Read layer 2 addresses, ports and VLANs on this device"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:371
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:369
 msgid "Reader %s"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:598
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:622
 msgid "Reading the snapshot failed: %s"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:620
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:298
+msgid "Remote MACs"
+msgstr ""
+
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:298
+msgid "Remote VLANs seen"
+msgstr ""
+
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:644
 msgid "Reset"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:664
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:688
 msgid "Snapshot"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:679
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:703
 msgid "Take a snapshot first."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:449
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:471
 msgid "Take a snapshot to begin."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:398
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:407
 msgid "Take another snapshot to compare changes."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:661
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:685
 msgid ""
 "Take one read-only snapshot of this device's live Layer 2 state, then search "
 "and compare it without polling the hardware. Nothing is stored."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:345
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:343
 msgid "Target"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:587
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:611
 msgid "The backend returned nothing usable. Is the l2-info package installed?"
 msgstr ""
 
@@ -370,39 +378,40 @@ msgstr ""
 msgid "The forwarding database could not be read: %s"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:404
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:413
 msgid ""
 "These two snapshots read different things, so they cannot be compared: %s."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:124
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:132
 msgid "This address belongs to this device."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:108
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:116
 msgid ""
 "Untagged arrival: this is the port's native VLAN, not a value from the "
 "forwarding entry."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:671
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:695
 msgid "Update snapshot"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:285
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:614
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:282
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:455
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:638
 msgid "VLAN"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:356
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:354
 msgid "VLAN filtering off, %d ports"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:355
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:353
 msgid "VLAN filtering on, %d ports"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:357
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:355
 msgid "VLAN filtering state unreadable, %d ports"
 msgstr ""
 
@@ -410,118 +419,120 @@ msgstr ""
 msgid "VLAN must be a whole number from 1 to 4094."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:413
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:423
 msgid "VLAN partly inferred"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:301
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:298
 msgid "VLANs"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:301
-msgid "VLANs seen"
-msgstr ""
-
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:376
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:374
 msgid "Value"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:463
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:485
 msgid "any"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:460
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:564
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:482
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:588
 msgid "any port"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:418
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:430
 msgid "appeared"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:146
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:154
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:341
 msgid "available"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:314
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:311
 msgid "down"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:465
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:487
 msgid "full or partial"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:422
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:440
 msgid "gone"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:152
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:160
 msgid "indeterminate"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:411
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:420
 msgid "moved"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:104
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:112
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:394
 msgid "none"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:150
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:158
 msgid "not applicable"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:448
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:473
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:470
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:495
 msgid "not taken"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:390
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:388
 msgid "reader coverage"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:619
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:643
 msgid "show"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:154
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:162
 msgid "skipped"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:381
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:379
 msgid "snapshot format/version"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:125
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:133
 msgid "this device"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:331
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:328
 msgid ""
 "u = untagged, t = tagged, * = native VLAN. Read from the kernel, not from "
 "configuration."
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:148
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:156
 msgid "unavailable"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:127
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:341
+msgid "unavailable — %s"
+msgstr ""
+
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:135
 msgid "unknown"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:392
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:390
 msgid "unknown scope difference"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:156
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:164
 #: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:212
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:342
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:343
 #: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:344
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:345
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:346
 msgid "unreported"
 msgstr ""
 
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:313
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:310
 msgid "up"
 msgstr ""

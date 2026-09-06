@@ -13,3 +13,4 @@ l2-info-*.json
 *.swp
 *~
 .DS_Store
+.ci-logs/

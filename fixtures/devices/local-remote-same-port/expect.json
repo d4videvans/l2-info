@@ -1,0 +1,53 @@
+{
+  "board": {
+    "board_name": "synthetic,local-remote",
+    "model": "Synthetic local/remote fixture",
+    "kernel": "6.12.0",
+    "release": {
+      "target": "synthetic/test"
+    }
+  },
+  "counts": {
+    "bridges": 1,
+    "ports": 1,
+    "fdb": 2
+  },
+  "entities": [
+    {
+      "collection": "ports",
+      "subject": {
+        "port": "lan1"
+      },
+      "derived": {
+        "mac_count": 1,
+        "vlans_observed": [
+          10
+        ]
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "02:00:00:00:00:01"
+      },
+      "derived": {
+        "local": true
+      }
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "aa:00:00:00:00:02"
+      },
+      "derived": {
+        "local": false
+      }
+    }
+  ],
+  "hints": {
+    "port": "lan1",
+    "silent": [
+      "port_multiple_macs"
+    ]
+  }
+}

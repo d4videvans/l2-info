@@ -146,11 +146,31 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "checks" ]; then
 		| wc -l)
 	check "D15: fixtures contain no non-synthetic MAC" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
 
-	# D17: every user-facing string in the view is translatable.
-	if [ -f "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" ]; then
-		hits=$(grep -nE ">[A-Za-z][A-Za-z ]{3,}<" "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" 2>/dev/null | wc -l)
-		check "D17: no untranslated markup text" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+	# D17: translation literals must not carry boundary whitespace. LuCI's
+	# scanner trims it, so runtime lookup would otherwise miss the POT key.
+	I18N_BOUNDARY_RE="_\\(['\"]([[:space:]][^'\"]*|[^'\"]*[[:space:]])['\"]\\)"
+	hits=$(grep -rnE "$I18N_BOUNDARY_RE" \
+		"$VIEW/htdocs/luci-static/resources" --include='*.js' 2>/dev/null | wc -l)
+	check "D17: translation literals have no boundary whitespace" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+
+	# Mutation-probe the guard itself: both leading and trailing boundary
+	# whitespace, including multi-word strings, must be detectable.
+	probe=$(printf '%s\n' \
+		"_('text ')" \
+		"_(' text')" \
+		"_('two words ')" \
+		"_(' leading words')" \
+		| grep -Ec "$I18N_BOUNDARY_RE")
+	check "D17: boundary-whitespace guard catches leading and trailing mutations" "$([ "$probe" -eq 4 ] && echo 0 || echo 1)"
+
+	# Demo rewrites share one authoritative precondition checker with install.
+	if sh "$ROOT/tools/check-screenshot-demo.sh" \
+		"$VIEW/htdocs/luci-static/resources/view/l2-info/main.js"; then
+		demo_status=0
+	else
+		demo_status=1
 	fi
+	check "demo: production rewrite preconditions hold" "$demo_status"
 
 	# Presentation policy is pure and unit tested outside the browser. Node is
 	# a development convenience, not a device dependency; CI must provide it.

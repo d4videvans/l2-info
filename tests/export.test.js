@@ -33,7 +33,12 @@ const ALLOWED = new Set([
 
 const ROW_KEYS = new Set([ 'subject', 'attrs', 'source', 'disputed' ]);
 
-/* Pull exportable() out of the view without a browser. */
+/* Pull exportable() out of the view without a browser.
+ *
+ * This shim intentionally depends on LuCI's current one-line `require ...;`
+ * wrapper shape. If that wrapper/list changes, update this loader rather than
+ * treating the resulting parse failure as an export-policy regression.
+ */
 function loadExportable() {
 	const src = fs.readFileSync(VIEW, 'utf8')
 		.replace(/^\s*'use strict';\s*$/m, '')

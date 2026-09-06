@@ -67,20 +67,9 @@ bridge.
 This handles empty bridges and the different live DSA/router link shapes seen
 across x86, Realtek, Mediatek and Qualcomm targets.
 
-### R5 — Preserve valid partial observations (P1) — deferred by evidence
+### R5 — Preserve valid partial observations (P1) — implemented for existing multi-source partial shape
 
-A hypothetical reader could successfully identify an entity while failing to
-read one required attribute. The current collection-level contract cannot
-retain rows for a non-`ok` collection without a schema decision.
-
-The completed hardware sweep did **not** produce this case. Whenever the rtnl
-reader was usable, the relevant live collections were wholly `ok`; a missing
-runtime module made the whole source unavailable rather than producing partial
-entity evidence.
-
-**Reopen only when:** a captured real source has valid entity evidence and an
-attribute failure coexisting in the same collection. Add a decision record
-before changing v1 semantics.
+The bundled rtnl reader already has a partial-observation case: generic RTM_GETLINK can successfully establish bridge identity/address while the separate sysfs `vlan_filtering` read fails. Valid identity is now retained as an `ok` bridge row with the unavailable optional attribute omitted and an attributed collection note. This does not claim that hardware/driver-level sparse fields have been observed; it reconciles the existing multi-source reader shape. Version 1 still has no machine-readable per-attribute failure vocabulary.
 
 ### R6 — No special no-bridge FDB rule (P1) — rejected by evidence
 

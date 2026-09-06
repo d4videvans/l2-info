@@ -1,0 +1,22 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "neighbours": {
+      "status": "ok",
+      "note": "partial neighbour coverage; IPv6: synthetic IPv6 neighbour dump failure"
+    }
+  },
+  "rows": [
+    {
+      "collection": "neighbours",
+      "subject": {
+        "mac": "aa:00:00:00:00:22"
+      },
+      "attrs": {
+        "neigh.ips": [
+          "192.0.2.22"
+        ]
+      }
+    }
+  ]
+}

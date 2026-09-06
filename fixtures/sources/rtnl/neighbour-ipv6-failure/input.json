@@ -1,0 +1,47 @@
+{
+  "link_generic": {
+    "rows": [
+      {
+        "ifname": "br-lan",
+        "linkinfo": {
+          "type": "bridge"
+        },
+        "address": "02:00:00:00:00:10"
+      }
+    ]
+  },
+  "link_bridge": {
+    "rows": [
+      {
+        "ifname": "lan1",
+        "master": "br-lan",
+        "carrier": true,
+        "address": "02:00:00:00:00:11"
+      }
+    ]
+  },
+  "neigh_bridge": {
+    "rows": [
+      {
+        "lladdr": "aa:00:00:00:00:11",
+        "dev": "lan1"
+      }
+    ]
+  },
+  "neigh_inet": {
+    "rows": [
+      {
+        "lladdr": "aa:00:00:00:00:22",
+        "dst": "192.0.2.22",
+        "state": 2
+      }
+    ]
+  },
+  "neigh_inet6": {
+    "error": "synthetic IPv6 neighbour dump failure"
+  },
+  "files": {
+    "/sys/class/net/br-lan/bridge/vlan_filtering": "1\n",
+    "/etc/ethers": ""
+  }
+}

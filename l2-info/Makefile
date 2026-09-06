@@ -7,7 +7,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=l2-info
-PKG_VERSION:=0.1
+PKG_VERSION:=0.1.0
 PKG_RELEASE:=1
 
 PKG_LICENSE:=Apache-2.0
@@ -43,8 +43,8 @@ define Package/l2-info/install
 	$(INSTALL_DATA) ./files/usr/share/l2-info/readers/rtnl.uc $(1)/usr/share/l2-info/readers/rtnl.uc
 endef
 
-# rpcd only scans its ucode directory at startup, so a new or changed backend
-# needs a restart to be visible.
+# rpcd reload re-execs/rescans the ucode directory, so a new or changed backend
+# becomes visible without requiring a heavier explicit restart.
 define Package/l2-info/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] || /etc/init.d/rpcd reload >/dev/null 2>&1

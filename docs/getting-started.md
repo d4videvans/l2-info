@@ -98,6 +98,11 @@ Refresh the LuCI page after installation and open:
 
 **Status → MAC & VLAN Lookup**
 
+An already logged-in LuCI session may continue to show its previous navigation
+after install or uninstall. If the menu does not reflect the installed state
+after refreshing, log out of LuCI and back in. A fresh login is the reliable
+check that the navigation matches the files currently installed on the device.
+
 Nothing is read until you press **Update snapshot**.
 
 The page then lets you:
@@ -193,6 +198,11 @@ sh tools/uninstall-test.sh
 This removes only the files copied by the test installer, clears the LuCI
 caches used by this app, and reloads `rpcd`.
 
+If the LuCI menu entry is still visible in the current browser session after
+uninstall, log out and back in before treating that as an uninstall failure. A
+fresh login should reflect the application files and menu definition that are
+actually present.
+
 It does **not** remove `rpcd-mod-ucode` or the `ucode-mod-*` dependencies. They
 are shared OpenWrt packages and may be used by other software.
 
@@ -244,8 +254,10 @@ exact revision/tag you copied.
 ### The LuCI page is not visible
 
 Confirm LuCI is installed and that the test installer said it installed the
-LuCI files. Then hard-refresh the browser. The installer already removes
-LuCI's index/module caches and reloads rpcd.
+LuCI files. Refresh the browser; if the menu is still absent, log out of LuCI
+and back in. The installer already removes LuCI's index/module caches and
+reloads rpcd, so repeatedly clearing those caches is not the expected fix for
+navigation retained by the current browser session.
 
 The backend can still be checked independently:
 

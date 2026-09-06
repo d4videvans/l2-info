@@ -50,7 +50,7 @@ return baseclass.extend({
 		{
 			id: 'no_reader',
 			kind: 'note',
-			test: function(s) {
+			test: function(s, view) {
 				var unclaimed = Object.keys(s.scope).filter(function(k) {
 					return s.scope[k] && s.scope[k].status == 'not_applicable';
 				});
@@ -58,7 +58,9 @@ return baseclass.extend({
 				if (!unclaimed.length)
 					return null;
 
-				return _('Nothing installed on this device can read: %s. Installing a reader package adds that capability.').format(unclaimed.join(', '));
+				var label = view.collectionLabel || function(name) { return name; };
+
+				return _('Nothing installed on this device can read: %s. Installing a reader package adds that capability.').format(unclaimed.map(label).join(', '));
 			}
 		},
 		{
@@ -170,12 +172,14 @@ return baseclass.extend({
 					if (r.derived.local)
 						return;
 
-					var k = r.subject.mac + '/' + r.attrs['fdb.port'];
+					var effective = (r.derived.vlan == null) ? 'none' : String(r.derived.vlan);
+					var reported = (r.attrs['fdb.vlan'] === undefined) ? 'none' : String(r.attrs['fdb.vlan']);
+					var k = r.subject.mac + '/' + r.attrs['fdb.port'] + '/' + effective;
 
-					if (seen[k])
+					if (seen[k] !== undefined && seen[k] != reported)
 						dup++;
-					else
-						seen[k] = true;
+					else if (seen[k] === undefined)
+						seen[k] = reported;
 				});
 
 				if (!dup)

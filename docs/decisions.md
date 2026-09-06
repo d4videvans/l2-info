@@ -339,6 +339,19 @@ Forum interest is itself evidence. The goal is not to accumulate features before
 submission; it is to expose assumptions to real users/hardware and make the
 upstream review better informed.
 
+
+## D51 — Per-port host aggregates exclude local and non-unicast addresses — settled
+
+`port.derived.mac_count` and `vlans_observed` describe remote unicast host observations, not every FDB row. The exclusion is exact and mechanical: `derived.local` is an address join and `mac_class` is classification against registered address constants. Local/multicast/protocol FDB evidence remains present; only the host-oriented aggregate excludes it. This is a pre-stable v1 semantic correction, with the LuCI labels changed to make the narrower meaning visible.
+
+## D52 — Preserve bridge identity when only an optional bridge attribute fails — settled
+
+A successful generic RTM_GETLINK bridge identity/address read remains valid when the separate `vlan_filtering` sysfs read fails. The bridge row is retained, `br.vlan_filtering` is omitted, and the `ok` collection carries an attributed explanatory note. Version 1 deliberately has no machine-readable per-attribute status vocabulary; free-text notes are not an API and must not be parsed as one. The D46 inconsistency case (AF_BRIDGE naming a master not established as a bridge by the generic dump) remains a collection-level failure for both bridges and ports.
+
+## D53 — Device metadata read failure is explicit — settled
+
+`device.status` distinguishes a failed `system.board` ubus call from a successful call that simply omits one or more descriptive metadata fields. This is metadata scope, not a reader collection and not topology evidence.
+
 ## Superseded/changed decisions at a glance
 
 | Earlier position | Current decision |

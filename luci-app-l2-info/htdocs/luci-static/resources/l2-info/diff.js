@@ -3,8 +3,8 @@
  *
  * Comparison is deliberately pure and lives outside the view so ambiguity is
  * testable. A change is evidence first; "moved" is emitted only for the one
- * case where one old observation pairs unambiguously with one new observation
- * for an ordinary remote unicast address (D12).
+ * case where one prior port presence and one current port presence differ for
+ * an ordinary remote unicast address (D12).
  */
 
 'use strict';
@@ -17,8 +17,38 @@
  * unusable. */
 var DIFF_COLLECTIONS = [ 'bridges', 'ports', 'fdb' ];
 
+/* Raw identity follows what the FDB actually reported. An untagged row whose
+ * effective VLAN comes from the PVID must remain distinct from an otherwise
+ * identical row that explicitly reported that VLAN. */
 function observationKey(r) {
-	return [ r.subject.mac, r.attrs['fdb.port'], r.derived.vlan ].join('/');
+	var reported = (r.attrs['fdb.vlan'] === undefined) ? null : r.attrs['fdb.vlan'];
+	return [ r.subject.mac, r.attrs['fdb.port'], JSON.stringify(reported) ].join('/');
+}
+
+/* Primitive user-visible appeared/gone evidence is deliberately coarser than
+ * raw identity: two kernel observations which resolve to the same MAC, port
+ * and effective VLAN describe one visible forwarding placement. This preserves
+ * VLAN-only changes while preventing raw-detail churn from reading as a host
+ * disappearance (D12). */
+function primitiveKey(r) {
+	var vlan = r.derived?.vlan;
+	return [
+		r.subject.mac,
+		r.attrs['fdb.port'],
+		JSON.stringify(vlan == null ? null : vlan)
+	].join('/');
+}
+
+function keyedRows(rows, keyfn) {
+	var out = {};
+
+	(rows || []).forEach(function(r) {
+		var k = keyfn(r);
+		if (!out[k])
+			out[k] = r;
+	});
+
+	return out;
 }
 
 function collectionFingerprint(snap, name) {
@@ -77,11 +107,49 @@ function scopeCompatible(a, b) {
 	return differ;
 }
 
-function diff(cur, prev) {
-	var a = {}, b = {}, out = { appeared: [], vanished: [], moved: [] };
+function eligible(r) {
+	var d = r.derived || {};
+	return !d.local && d.mac_class == 'unicast' && !!r.attrs['fdb.port'];
+}
 
-	(cur.fdb || []).forEach(function(r) { a[observationKey(r)] = r; });
-	(prev.fdb || []).forEach(function(r) { b[observationKey(r)] = r; });
+function portPresence(rows) {
+	var byMac = {};
+
+	(rows || []).forEach(function(r) {
+		if (!eligible(r))
+			return;
+
+		var mac = r.subject.mac, port = r.attrs['fdb.port'];
+		byMac[mac] ||= {};
+		byMac[mac][port] ||= [];
+		byMac[mac][port].push(r);
+	});
+
+	return byMac;
+}
+
+function vlanFor(rows) {
+	var values = [];
+
+	(rows || []).forEach(function(r) {
+		var v = r.derived?.vlan;
+		if (v != null && values.indexOf(v) < 0)
+			values.push(v);
+	});
+
+	return values.length == 1 ? values[0] : null;
+}
+
+function diff(cur, prev) {
+	var a = keyedRows(cur.fdb, observationKey);
+	var b = keyedRows(prev.fdb, observationKey);
+	var pa = keyedRows(cur.fdb, primitiveKey);
+	var pb = keyedRows(prev.fdb, primitiveKey);
+	var out = {
+		appeared: [], vanished: [], moved: [],
+		primitiveAppeared: [], primitiveVanished: [],
+		presenceAppeared: [], presenceVanished: []
+	};
 
 	Object.keys(a).forEach(function(k) {
 		if (!b[k])
@@ -93,49 +161,48 @@ function diff(cur, prev) {
 			out.vanished.push(b[k]);
 	});
 
-	var appearedByMac = {}, vanishedByMac = {};
-
-	out.appeared.forEach(function(r) {
-		var d = r.derived || {};
-
-		if (d.local || d.mac_class != 'unicast')
-			return;
-
-		(appearedByMac[r.subject.mac] ||= []).push(r);
+	Object.keys(pa).forEach(function(k) {
+		if (!pb[k])
+			out.primitiveAppeared.push(pa[k]);
 	});
 
-	out.vanished.forEach(function(r) {
-		var d = r.derived || {};
-
-		if (d.local || d.mac_class != 'unicast')
-			return;
-
-		(vanishedByMac[r.subject.mac] ||= []).push(r);
+	Object.keys(pb).forEach(function(k) {
+		if (!pa[k])
+			out.primitiveVanished.push(pb[k]);
 	});
 
-	Object.keys(appearedByMac).forEach(function(mac) {
-		var now = appearedByMac[mac] || [];
-		var before = vanishedByMac[mac] || [];
+	var now = portPresence(cur.fdb), before = portPresence(prev.fdb);
+	var macs = {};
+	Object.keys(now).forEach(function(m) { macs[m] = true; });
+	Object.keys(before).forEach(function(m) { macs[m] = true; });
 
-		/* Any 1:N, N:1 or N:N case has more than one possible pairing. Show
-		 * the primitive evidence instead of manufacturing a plausible move. */
-		if (now.length != 1 || before.length != 1)
+	Object.keys(macs).forEach(function(mac) {
+		var np = Object.keys(now[mac] || {});
+		var bp = Object.keys(before[mac] || {});
+
+		np.forEach(function(port) {
+			if (!(before[mac] || {})[port])
+				out.presenceAppeared.push(now[mac][port][0]);
+		});
+
+		bp.forEach(function(port) {
+			if (!(now[mac] || {})[port])
+				out.presenceVanished.push(before[mac][port][0]);
+		});
+
+		if (np.length != 1 || bp.length != 1 || np[0] == bp[0])
 			return;
 
-		var r = now[0], p = before[0];
-
-		/* A VLAN-only change is real but it is not a port move. Leaving its
-		 * appear/vanish evidence visible is less misleading than "lan2 → lan2". */
-		if (r.attrs['fdb.port'] == p.attrs['fdb.port'])
-			return;
-
+		var nrows = now[mac][np[0]], brows = before[mac][bp[0]];
 		out.moved.push({
 			mac: mac,
-			from: p.attrs['fdb.port'],
-			to: r.attrs['fdb.port'],
-			fromVlan: p.derived.vlan,
-			toVlan: r.derived.vlan,
-			weak: (p.derived.vlan_source == 'pvid' || r.derived.vlan_source == 'pvid')
+			from: bp[0],
+			to: np[0],
+			fromVlan: vlanFor(brows),
+			toVlan: vlanFor(nrows),
+			weak: brows.concat(nrows).some(function(r) {
+				return r.derived?.vlan_source == 'pvid';
+			})
 		});
 	});
 

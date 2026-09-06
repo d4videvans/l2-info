@@ -23,16 +23,7 @@ DEMO=/www/luci-static/resources/view/l2-info/demo.js
 [ -f "$ROOT/tools/demo-backend.uc" ] || fail "missing tools/demo-backend.uc"
 [ -f "$ROOT/tools/demo-snapshot.uc" ] || fail "missing tools/demo-snapshot.uc"
 
-count=$(grep -c "object: 'l2-info'" "$MAIN" || true)
-[ "$count" -eq 1 ] || fail "expected exactly one l2-info rpc object declaration in $MAIN; found $count"
-count=$(grep -F -c "_('MAC & VLAN Lookup')" "$MAIN" || true)
-[ "$count" -eq 1 ] || fail "expected exactly one production page title in $MAIN; found $count"
-count=$(grep -F -c "Take one read-only snapshot" "$MAIN" || true)
-[ "$count" -eq 1 ] || fail "expected exactly one production introduction in $MAIN; found $count"
-count=$(grep -F -c "Read from the kernel, not from configuration." "$MAIN" || true)
-[ "$count" -eq 1 ] || fail "expected exactly one production VLAN legend in $MAIN; found $count"
-count=$(grep -F -c "This does not read the hardware again." "$MAIN" || true)
-[ "$count" -eq 1 ] || fail "expected exactly one production filter description in $MAIN; found $count"
+sh "$ROOT/tools/check-screenshot-demo.sh" "$MAIN"
 
 mkdir -p \
 	/usr/share/l2-info \
@@ -105,5 +96,6 @@ fi
 
 printf '%s\n' "Synthetic screenshot mode installed."
 printf '%s\n' "Refresh LuCI and open: Status -> MAC & VLAN Lookup (synthetic demo)"
+printf '%s\n' "If the demo menu is missing, log out of LuCI and back in."
 printf '%s\n' "The ordinary MAC & VLAN Lookup page still uses your live device data."
 printf '%s\n' "Remove demo mode with: sh $ROOT/tools/uninstall-screenshot-demo.sh"

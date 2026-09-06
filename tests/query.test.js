@@ -73,4 +73,10 @@ assert('invalid vlan returns no rows and an error', r.rows.length === 0 && r.que
 r = mod.filterRows(snap, { port: '', vlan: '', mac: 'zz', nonUnicast: true });
 assert('invalid mac returns no rows and an error', r.rows.length === 0 && r.query.errors.includes('mac-format'));
 
+
+r = mod.filterRows(snap, { port: 'lan1', vlan: '', mac: '', nonUnicast: false });
+assert('filtered denominator uses pre-hide population', r.populationCount === 2);
+assert('filtered hidden non-unicast count', r.hiddenNonUnicast === 1);
+assert('visible rows still exclude non-unicast', r.rows.length === 1);
+
 process.exit(failures ? 1 : 0);

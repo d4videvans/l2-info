@@ -1,0 +1,64 @@
+{
+  "provides": [
+    "bridges",
+    "ports",
+    "fdb",
+    "neighbours",
+    "names"
+  ],
+  "collections": {
+    "bridges": {
+      "status": "ok",
+      "note": "VLAN filtering state unreadable for: br-lan"
+    },
+    "ports": {
+      "status": "ok"
+    },
+    "fdb": {
+      "status": "ok"
+    },
+    "neighbours": {
+      "status": "ok"
+    },
+    "names": {
+      "status": "ok"
+    }
+  },
+  "rows": [
+    {
+      "subject": {
+        "bridge": "br-lan"
+      },
+      "attrs": {
+        "br.name": "br-lan",
+        "br.address": "02:00:00:00:00:10"
+      }
+    },
+    {
+      "subject": {
+        "port": "lan1"
+      },
+      "attrs": {
+        "topo.port": "lan1",
+        "topo.bridge": "br-lan",
+        "topo.address": "02:00:00:00:00:11"
+      }
+    },
+    {
+      "subject": {
+        "mac": "02:00:00:00:00:10"
+      },
+      "attrs": {
+        "fdb.port": "br-lan"
+      }
+    },
+    {
+      "subject": {
+        "mac": "aa:00:00:00:00:11"
+      },
+      "attrs": {
+        "fdb.port": "lan1"
+      }
+    }
+  ]
+}
