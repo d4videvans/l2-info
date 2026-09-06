@@ -56,7 +56,10 @@ files and prints the appropriate `apk add` or `opkg install` command. Run that
 command, then run the installer again.
 
 If LuCI is installed, the same command installs the web interface. Refresh LuCI
-and open **Status → MAC & VLAN Lookup**. For a headless check:
+and open **Status → MAC & VLAN Lookup**. On some current LuCI builds, an existing
+logged-in session keeps its menu tree; if the new menu does not appear, log out
+of LuCI and back in. The same applies after uninstall if a removed menu entry
+remains visible in an existing session. For a headless check:
 
 ```sh
 ubus call l2-info snapshot
