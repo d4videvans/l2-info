@@ -390,15 +390,15 @@ function fmtScopeDifference(d) {
 	return _('unknown scope difference');
 }
 
-function fmtDiffVlan(vlan) {
-	return (vlan == null) ? el('em', {}, _('none')) : String(vlan);
+function fmtDiffVlan(vlans) {
+	var none = el('em', {}, _('none')), out = [];
+	(vlans || []).forEach(function(v, i) { if (i) out.push(', '); out.push(v == null ? el('em', {}, '?') : String(v)); });
+	return out.length ? out : none;
 }
-
 function fmtMoveVlan(m) {
-	if (m.fromVlan == m.toVlan)
-		return fmtDiffVlan(m.toVlan);
-
-	return [ fmtDiffVlan(m.fromVlan), ' → ', fmtDiffVlan(m.toVlan) ];
+	if (JSON.stringify(m.fromVlans || []) == JSON.stringify(m.toVlans || []))
+		return fmtDiffVlan(m.toVlans);
+	return [ fmtDiffVlan(m.fromVlans), ' → ', fmtDiffVlan(m.toVlans) ];
 }
 
 function renderDiff() {
@@ -422,24 +422,24 @@ function renderDiff() {
 			fmtMoveVlan(m),
 			m.weak ? el('em', {}, _('VLAN partly inferred')) : ''
 		];
-	}).concat(d.primitiveAppeared.filter(function(r) {
-		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
-	}).map(function(r) {
+	}).concat(d.visibleAppeared.map(function(r) {
+		/* Already excludes placements represented by a moved row. */
+
 		return [
 			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac),
 			_('appeared'),
 			r.attrs['fdb.port'],
-			fmtDiffVlan(r.derived?.vlan),
+			fmtDiffVlan([ r.derived?.vlan ]),
 			''
 		];
-	})).concat(d.primitiveVanished.filter(function(r) {
-		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
-	}).map(function(r) {
+	})).concat(d.visibleVanished.map(function(r) {
+		/* Already excludes placements represented by a moved row. */
+
 		return [
 			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac),
 			_('gone'),
 			r.attrs['fdb.port'],
-			fmtDiffVlan(r.derived?.vlan),
+			fmtDiffVlan([ r.derived?.vlan ]),
 			''
 		];
 	}));

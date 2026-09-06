@@ -208,8 +208,20 @@ is the evidence being compared, port PVID can change resolved VLAN identity,
 and bridge/port addresses can change `derived.local`. Names/neighbours are
 annotation and do not block a forwarding diff.
 
-A strong `moved` interpretation is produced only for the unambiguous remote
-unicast 1->1 case. Otherwise the UI shows primitive appeared/vanished evidence.
+The diff then keeps three identities separate. Raw appeared/vanished evidence
+uses MAC + port + reported `fdb.vlan`, matching the backend observation
+contract. Primitive user-visible placement uses MAC + port + effective
+`derived.vlan`; this can collapse dual raw reports that resolve to the same
+placement without changing raw identity. Movement inference uses the complete
+qualifying remote-unicast MAC + port presence set.
+
+A strong `moved` interpretation is produced only when the before presence set
+contains exactly one port and the after set exactly one different port. The move
+record retains every distinct effective VLAN observed on each side, including
+an unresolved/null member where present. Primitive placements fully represented
+by that move may be hidden to avoid duplication; any placement not represented
+by it remains appeared/vanished evidence. A VLAN-only change on one port is
+therefore never turned into a port move.
 
 ## Cost model
 
