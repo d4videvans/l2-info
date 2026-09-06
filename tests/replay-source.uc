@@ -37,7 +37,16 @@ function leaf(path) {
 function readjson(path) {
 	let raw = readfile(path);
 
-	return (raw != null) ? json(raw) : null;
+	if (raw == null)
+		return null;
+
+	try {
+		return json(raw);
+	}
+	catch (e) {
+		warn(`${path}: invalid JSON: ${e.message ?? e}\n`);
+		exit(2);
+	}
 }
 
 // Real kernel constant values, so a fixture records what the kernel actually
@@ -52,10 +61,16 @@ const NL = {
 };
 
 // Fixture input keys, so a fixture is readable as a description of a device
-// rather than as a sequence of syscalls.
+// rather than as a sequence of syscalls. D46 makes the two GETLINK views
+// separate inputs: generic links establish device kind, AF_BRIDGE establishes
+// membership and VLAN state.
 function request_key(cmd, payload) {
-	if (cmd == NL.RTM_GETLINK)
-		return 'link_bridge';
+	if (cmd == NL.RTM_GETLINK) {
+		if (payload.family == NL.AF_BRIDGE)
+			return 'link_bridge';
+
+		return 'link_generic';
+	}
 
 	if (cmd == NL.RTM_GETNEIGH) {
 		if (payload.family == NL.AF_BRIDGE) return 'neigh_bridge';
@@ -80,6 +95,12 @@ function make_stub(input) {
 
 			if (entry == null)
 				return [];
+
+			// ucode-mod-rtnl returns null, with nl.error() still null, when a
+			// multipart dump completes successfully without any valid rows.
+			// Fixtures need to represent that separately from an actual error.
+			if (entry.null_result)
+				return null;
 
 			if (entry.error != null) {
 				last_error = entry.error;

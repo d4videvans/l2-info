@@ -1,0 +1,137 @@
+{
+  "link_generic": {
+    "rows": [
+      {
+        "ifname": "wan",
+        "master": "br-lan",
+        "address": "02:46:00:00:00:02",
+        "linkinfo": {
+          "slave": {
+            "type": "bridge"
+          }
+        }
+      },
+      {
+        "ifname": "lan1",
+        "master": "br-lan",
+        "address": "02:46:00:00:00:01",
+        "linkinfo": {
+          "type": "dsa",
+          "slave": {
+            "type": "bridge"
+          }
+        }
+      },
+      {
+        "ifname": "br-lan",
+        "address": "02:46:00:00:00:01",
+        "linkinfo": {
+          "type": "bridge"
+        }
+      },
+      {
+        "ifname": "br-lan.20",
+        "address": "02:46:00:00:00:01",
+        "linkinfo": {
+          "type": "vlan",
+          "id": 20
+        }
+      },
+      {
+        "ifname": "phy0-ap0",
+        "master": "br-lan",
+        "address": "02:46:00:00:00:10",
+        "linkinfo": {
+          "slave": {
+            "type": "bridge"
+          }
+        }
+      }
+    ]
+  },
+  "link_bridge": {
+    "rows": [
+      {
+        "ifname": "wan",
+        "master": "br-lan",
+        "address": "02:46:00:00:00:02",
+        "af_spec": {
+          "bridge": {
+            "bridge_vlan_info": [
+              {
+                "vid": 1,
+                "flags": 0
+              },
+              {
+                "vid": 20,
+                "flags": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "ifname": "lan1",
+        "master": "br-lan",
+        "address": "02:46:00:00:00:01",
+        "af_spec": {
+          "bridge": {
+            "bridge_vlan_info": [
+              {
+                "vid": 1,
+                "flags": 6
+              }
+            ]
+          }
+        }
+      },
+      {
+        "ifname": "br-lan",
+        "master": "br-lan",
+        "address": "02:46:00:00:00:01",
+        "af_spec": {
+          "bridge": {
+            "bridge_vlan_info": [
+              {
+                "vid": 1,
+                "flags": 0
+              },
+              {
+                "vid": 20,
+                "flags": 0
+              }
+            ]
+          }
+        }
+      },
+      {
+        "ifname": "phy0-ap0",
+        "master": "br-lan",
+        "address": "02:46:00:00:00:10",
+        "af_spec": {
+          "bridge": {
+            "bridge_vlan_info": [
+              {
+                "vid": 20,
+                "flags": 6
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "neigh_bridge": {
+    "rows": []
+  },
+  "neigh_inet": {
+    "rows": []
+  },
+  "neigh_inet6": {
+    "rows": []
+  },
+  "files": {
+    "/sys/class/net/br-lan/bridge/vlan_filtering": "1\n",
+    "/etc/ethers": "\n"
+  }
+}

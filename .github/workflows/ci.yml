@@ -1,0 +1,182 @@
+---
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  UCODE_COMMIT: b885dd0fe1e974551fb1233ca5f3aa74d80b74d9
+
+jobs:
+  unit:
+    name: Unit and fixture tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: latest
+
+      - name: Install ucode build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git libjson-c-dev pkg-config
+
+      - name: Build OpenWrt-pinned host ucode
+        run: |
+          git init /tmp/ucode
+          git -C /tmp/ucode remote add origin https://github.com/jow-/ucode.git
+          git -C /tmp/ucode fetch --depth=1 origin "$UCODE_COMMIT"
+          git -C /tmp/ucode checkout FETCH_HEAD
+          cmake -S /tmp/ucode -B /tmp/ucode-build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DFS_SUPPORT=ON \
+            -DUBUS_SUPPORT=OFF \
+            -DUCI_SUPPORT=OFF \
+            -DULOOP_SUPPORT=OFF \
+            -DRTNL_SUPPORT=OFF \
+            -DNL80211_SUPPORT=OFF \
+            -DRESOLV_SUPPORT=OFF
+          cmake --build /tmp/ucode-build --parallel
+          sudo cmake --install /tmp/ucode-build
+          sudo ldconfig
+          test "$(ucode -e 'print("ok")')" = ok
+
+      - name: Validate shell helper syntax
+        run: |
+          find tools tests -type f -name '*.sh' -print0 \
+            | xargs -0 -n1 sh -n
+
+      - name: Validate synthetic demo ucode
+        run: |
+          test "$(ucode -e 'let s = loadfile("tools/demo-snapshot.uc")(); print(s.format)')" = l2-info.snapshot
+          test "$(ucode -e 'let p = loadfile("tools/demo-backend.uc")(); print(type(p["l2-info-demo"].snapshot.call))')" = function
+
+      - name: Validate fixture JSON
+        run: |
+          find fixtures -type f -name '*.json' -print0 \
+            | xargs -0 -n1 python3 -m json.tool >/dev/null
+
+      - name: Run complete test suite
+        run: sh tests/run.sh
+
+  luci-eslint:
+    name: Current LuCI lint and i18n
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: latest
+
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gettext
+
+      - name: Stage app in current LuCI tree
+        run: |
+          git clone --depth=1 https://github.com/openwrt/luci.git /tmp/luci
+          rm -rf /tmp/luci/applications/luci-app-l2-info
+          cp -a luci-app-l2-info /tmp/luci/applications/luci-app-l2-info
+
+      - name: Install LuCI's declared lint dependencies
+        working-directory: /tmp/luci
+        run: npm install --no-audit --no-fund
+
+      - name: Run LuCI's ESLint configuration
+        working-directory: /tmp/luci
+        run: |
+          npx eslint \
+            applications/luci-app-l2-info/htdocs/luci-static/resources/**/*.js \
+            applications/luci-app-l2-info/root/usr/share/**/*.json
+
+      - name: Check LuCI translation template
+        working-directory: /tmp/luci
+        run: |
+          ./build/i18n-scan.pl applications/luci-app-l2-info \
+            > /tmp/l2-info.pot
+          diff -u \
+            applications/luci-app-l2-info/po/templates/l2-info.pot \
+            /tmp/l2-info.pot
+
+  upstream-build:
+    name: OpenWrt/LuCI package build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build both intended upstream packages in official SDK
+        run: |
+          mkdir -p "$PWD/.ci-logs"
+          chmod 0777 "$PWD/.ci-logs"
+          docker run --rm \
+            -v "$PWD:/workspace:ro" \
+            -v "$PWD/.ci-logs:/ci-logs" \
+            openwrt/sdk:x86_64-master \
+            bash -lc '
+              set -eux
+              [ -d scripts ] || ./setup.sh
+              ./scripts/feeds update base packages luci
+              ./scripts/feeds install -p base \
+                lua \
+                ucode \
+                rpcd \
+                libubox \
+                ubus \
+                libnl-tiny \
+                iwinfo
+
+              rm -rf package/l2-info
+              cp -a /workspace/l2-info package/l2-info
+
+              rm -rf feeds/luci/applications/luci-app-l2-info
+              cp -a /workspace/luci-app-l2-info feeds/luci/applications/luci-app-l2-info
+              ./scripts/feeds update -i luci
+
+              ./scripts/feeds install -f l2-info luci-app-l2-info
+              make defconfig
+
+              build_target() {
+                name="$1"
+                target="$2"
+                log="/ci-logs/${name}.log"
+
+                set +e
+                make "$target" V=s -j"$(nproc)" 2>&1 | tee "$log"
+                status="${PIPESTATUS[0]}"
+                set -e
+
+                if [ "$status" -ne 0 ]; then
+                  echo "::group::${name} SDK failure tail"
+                  tail -n 200 "$log"
+                  echo "::endgroup::"
+                  first_error="$(grep -m1 -E "(ERROR:|error:|make(\\[[0-9]+\\])?: \\*\\*\\*)" "$log" | tr "\\r\\n" "  " || true)"
+                  echo "::error title=${name} SDK build failed::${first_error:-See failure tail above}"
+                  exit "$status"
+                fi
+              }
+
+              build_target l2-info package/l2-info/compile
+              build_target luci-app-l2-info package/feeds/luci/luci-app-l2-info/compile
+            '
+
+      - name: Upload SDK failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-failure-logs
+          path: .ci-logs/*.log
+          if-no-files-found: warn
+          retention-days: 7

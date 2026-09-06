@@ -1,0 +1,29 @@
+{
+  "link_generic": {
+    "rows": [
+      { "ifname": "br-lan", "address": "02:50:00:00:00:01", "linkinfo": { "type": "bridge" } }
+    ]
+  },
+  "link_bridge": {
+    "rows": [
+      { "ifname": "br-lan", "master": "br-lan", "address": "02:50:00:00:00:01",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 1, "flags": 0 } ] } } },
+      { "ifname": "lan1", "master": "br-lan", "address": "02:50:00:00:00:02",
+        "af_spec": { "bridge": { "bridge_vlan_info": [ { "vid": 1, "flags": 6 } ] } } }
+    ]
+  },
+  "neigh_bridge": {
+    "rows": [
+      { "dev": "lan1", "lladdr": "00:00:00:00:00:00", "vlan": 66, "flags": 2 },
+      { "dev": "lan1", "lladdr": "00:00:00:00:00:00", "vlan": 66, "flags": 2 },
+      { "dev": "lan1", "lladdr": "00:00:00:00:00:00", "vlan": 66, "flags": 2 },
+      { "dev": "lan1", "lladdr": "aa:bb:cc:50:00:01", "vlan": 66, "flags": 2 }
+    ]
+  },
+  "neigh_inet": { "rows": [] },
+  "neigh_inet6": { "rows": [] },
+  "files": {
+    "/sys/class/net/br-lan/bridge/vlan_filtering": "1\n",
+    "/etc/ethers": "\n"
+  }
+}

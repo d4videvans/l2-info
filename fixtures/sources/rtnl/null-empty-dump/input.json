@@ -1,0 +1,23 @@
+{
+  "link_generic": {
+    "rows": [
+      { "ifname": "br-empty", "linkinfo": { "type": "bridge" } }
+    ]
+  },
+  "link_bridge": {
+    "rows": []
+  },
+  "neigh_bridge": {
+    "null_result": true
+  },
+  "neigh_inet": {
+    "null_result": true
+  },
+  "neigh_inet6": {
+    "null_result": true
+  },
+  "files": {
+    "/sys/class/net/br-empty/bridge/vlan_filtering": "0\n",
+    "/etc/ethers": ""
+  }
+}

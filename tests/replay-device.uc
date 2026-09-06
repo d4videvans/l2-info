@@ -126,6 +126,12 @@ for (let c in lib.COLLECTIONS) {
 if (expect.scope)
 	A.subset(snap.scope, expect.scope, 'scope');
 
+// Contract removals need a negative assertion: subset expectations alone
+// would allow a removed field to creep back in unnoticed.
+for (let c, attrs in expect.scope_attrs_absent ?? {})
+	for (let a in attrs)
+		A.ok(snap.scope[c]?.[a] == null, `scope.${c} omits ${a}`);
+
 if (expect.counts) {
 	let counts = {};
 

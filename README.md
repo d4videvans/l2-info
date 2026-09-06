@@ -1,126 +1,175 @@
 # l2-info
 
-##***PLEASE NOTE: This is work in progress, it may not function as expected, or at all.***##
+`l2-info` is a read-only OpenWrt diagnostic for answering a simple set of
+questions from one device:
 
-Answers, on one OpenWrt device, from live kernel state:
+- which MAC addresses are visible on which ports and VLANs;
+- which ports belong to which bridges and VLANs;
+- which VLAN is native/untagged on each port;
+- what changed between two user-triggered snapshots;
+- what the device could not determine, rather than silently showing an empty
+  result.
 
-- which MAC addresses are on which ports and VLANs
-- which ports are in which VLANs, tagged or untagged, and which VLAN each port
-  treats as native
-- what kind of L2 setup this device actually has, and what it cannot see
+The LuCI page is **Status → MAC & VLAN Lookup**.
 
-It takes one snapshot when you ask for it, then answers questions from that
-snapshot without re-reading the hardware. It stores nothing, runs no daemon,
-polls nothing, and writes no configuration.
+> **Project status:** pre-upstream testing. The backend and LuCI packages build
+> successfully against the official OpenWrt SDK and current LuCI, but they have
+> not yet been submitted to the OpenWrt package feeds. The installation method
+> below is therefore a reversible test install from this repository.
 
-It is a deliberately narrow, single-device tool. It makes no inferences that
-require a second device, and it does not classify — it reports what it read,
-counts what it found, and says plainly what it could not determine. See
-`docs/principles.md`, which is the document to read first.
+## What it does — and does not do
 
-## Shape
+Press **Update snapshot** and the backend reads the device's live bridge,
+forwarding and neighbour state once. The browser then filters, searches and
+compares that snapshot without re-reading the hardware.
 
-Two packages, developed in this repository, intended for two different
-upstream trees:
+`l2-info`:
 
-| Package | Contents | Upstream target |
-|---|---|---|
-| `l2-info` | rpcd ucode plugin exposing ubus object `l2-info`, plus the one core reader | `openwrt/packages` |
-| `luci-app-l2-info` | LuCI view, menu entry, ACL | `openwrt/luci` |
+- stores no network state;
+- runs no daemon of its own;
+- does not poll;
+- ships no UCI configuration;
+- has a read-only LuCI ACL;
+- does not change bridge, VLAN, interface or forwarding configuration.
 
-Data is read through *readers*: small, separately packaged modules that declare
-what they can see. The core ships exactly one, for the kernel bridge and
-neighbour tables via netlink, and treats it identically to any third-party
-one. Sources are extensible; the attribute vocabulary deliberately is not. See
-`docs/readers.md`.
+Some switch drivers make an FDB read comparatively expensive. The duration is
+shown in the page so that cost is visible; another snapshot is only taken when
+you ask for one.
 
-The backend has no LuCI dependency and is usable on a headless device:
+## Quick test install
+
+Git is **not** required on the OpenWrt device. Download or clone the revision
+you want to test on another machine, copy the whole checkout to the router
+(for example as `/tmp/l2-info` with `scp` or WinSCP), then run:
+
+```sh
+cd /tmp/l2-info
+sh tools/install-test.sh
+```
+
+If a required runtime package is missing, the installer stops before copying
+files and prints the appropriate `apk add` or `opkg install` command. Run that
+command, then run the installer again.
+
+If LuCI is installed, the same command installs the web interface. Refresh LuCI
+and open **Status → MAC & VLAN Lookup**. For a headless check:
 
 ```sh
 ubus call l2-info snapshot
 ```
 
-## Documentation map
-
-One fact has one home. Where a document repeats something owned elsewhere it
-is navigation, not a rival definition, and the owning document wins.
-
-| Document | Owns |
-|---|---|
-| `docs/principles.md` | The architectural rules and how each is enforced |
-| `docs/architecture.md` | Components, data flow, kernel interfaces, cost model |
-| `docs/readers.md` | The reader contract: manifest, discovery, merging, obligations |
-| `CONTRIBUTING.md` | How to work on this, and how to contribute hardware coverage |
-| `docs/snapshot-format.md` | The snapshot contract: envelope, scope, rows, versioning |
-| `docs/fixtures.md` | Device classes, fixture layout, capture and redaction |
-| `docs/decisions.md` | Every settled and deferred decision, with consequences |
-| `CONVENTIONS.md` | Contributor and agent conventions, mechanical checks |
-
-## Status
-
-Implemented, covered by fixtures, and run on real hardware: a GS1920-24 v1
-(rtl839x, kernel 6.18.44) assembled a full snapshot of 28 ports and 7 VLANs in
-1.34 s. That run exposed four defects — one in the merge (D40) and three in the
-reader (D41) — all fixed and pinned by fixtures verified to fail against the
-code that shipped them.
-
-A second run cross-checked the reader against `bridge fdb show` and
-`bridge -j vlan show` on the same device, verifying the flag and VLAN-flag
-vocabularies and exposing one documented-but-unimplemented field (D42). A third
-confirmed the counts agree with iproute2 on the same device — 81 entries, 44
-reported by the switch hardware — and found one more dropped field (D43). The
-page itself has now been rendered on that switch, which found a hint firing on
-the device's own address (D44), and the first exported file carried a
-view-internal field (D45).
-
-The live switch now reports 28 ports, zero conflicts, and 83 forwarding entries
-split 45/38 between the switch hardware and the software bridge, merging to 55
-distinct observations.
-
-`tests/run.sh` replays 18 fixtures across three seams and runs the mechanical
-checks that enforce the principles. What that proves is parsing, merging, scope
-declaration, derivation and hint firing. What it cannot prove is that any real
-driver behaves as its fixture claims, or what a snapshot costs on a switch —
-both need hardware (`docs/fixtures.md`, final section).
-
-Open decisions: D21 (a `capture` method for fixture contribution) and D22
-(panel layout).
-
-## Trying it
+To remove the test install:
 
 ```sh
-# dependencies
-apk add rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
-# or: opkg install rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
-
-# backend
-scp l2-info/files/usr/share/rpcd/ucode/l2-info      root@dev:/usr/share/rpcd/ucode/
-scp l2-info/files/usr/share/l2-info/assemble.uc     root@dev:/usr/share/l2-info/
-scp l2-info/files/usr/share/l2-info/readers/rtnl.uc root@dev:/usr/share/l2-info/readers/
-
-# view
-scp luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js \
-    root@dev:/www/luci-static/resources/view/l2-info/
-scp luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js \
-    root@dev:/www/luci-static/resources/l2-info/
-scp luci-app-l2-info/root/usr/share/luci/menu.d/*.json  root@dev:/usr/share/luci/menu.d/
-scp luci-app-l2-info/root/usr/share/rpcd/acl.d/*.json   root@dev:/usr/share/rpcd/acl.d/
-
-ssh root@dev '/etc/init.d/rpcd restart; rm -f /tmp/luci-indexcache*'
-ssh root@dev 'time ubus call l2-info snapshot'
+cd /tmp/l2-info
+sh tools/uninstall-test.sh
 ```
 
-## Relation to bearings
+The uninstall removes only `l2-info` files and leaves shared dependencies
+installed.
 
-Some of the design choices are related to something else I'm working on, as yet
-unpublished:
-`bearings` is a separate fleet-scale system: many devices, spooled captures, a
-store, and cross-device inference. This project borrows its attribute
-vocabulary and several of its hard-won lessons (see `docs/decisions.md` D9,
-D18, D19) and deliberately borrows none of its machinery. The two answer
-different questions, and this one exists because the narrow question does not
-need any of that apparatus.
+For step-by-step installation, updating, troubleshooting and privacy notes, see
+[`docs/getting-started.md`](docs/getting-started.md).
+
+### Safe screenshots with synthetic data
+
+For screenshots or demonstrations, install the ordinary test build first, then
+add the separate synthetic demo surface:
+
+```sh
+sh tools/install-screenshot-demo.sh
+```
+
+Refresh LuCI and open **Status → MAC & VLAN Lookup (synthetic demo)**. That page
+uses only repository-supplied synthetic MACs, documentation-range IP addresses
+and demo VLANs; the ordinary page remains connected to the live device. Remove
+the demo surface with:
+
+```sh
+sh tools/uninstall-screenshot-demo.sh
+```
+
+The getting-started guide explains the separation and how to edit the harmless
+demo values if a different screenshot would be clearer.
+
+## Hardware validation so far
+
+The current design has been exercised on deliberately different OpenWrt
+platforms rather than being tied to a device allowlist:
+
+| Platform | Validation role |
+|---|---|
+| x86/64 software bridges | no bridge, empty bridge, populated bridge and VLAN-filtered bridge behaviour |
+| Zyxel GS1920-24 v1 (`rtl839x`) | 28-port Realtek DSA switch, expensive hardware FDB walk |
+| Zyxel GS1900-8HP B1 (`rtl838x`) | second Realtek generation and a different DSA link representation |
+| Cudy WR3000P v1 (`mediatek/filogic`) | mixed DSA, WAN and Wi-Fi bridge membership |
+| Linksys SPNMX56 (`qualcommax/ipq50xx`) | Qualcomm DSA and all-zero FDB placeholder behaviour |
+| Linksys EA8300 (`ipq40xx/generic`) | older Qualcomm DSA/Wi-Fi representation |
+
+That is evidence, not a compatibility whitelist. Other targets are exactly what
+the pre-upstream test phase is intended to find. The detailed hardware matrix
+and measurements live in [`docs/remediation.md`](docs/remediation.md).
+
+## Package shape
+
+The repository develops two packages intended for two upstream trees:
+
+| Package | Purpose | Intended upstream |
+|---|---|---|
+| `l2-info` | rpcd ucode backend and the core rtnetlink reader | `openwrt/packages` |
+| `luci-app-l2-info` | LuCI view, menu entry and read-only ACL | `openwrt/luci` |
+
+The backend has no LuCI dependency and exposes one method:
+
+```sh
+ubus call l2-info snapshot
+```
+
+Readers are an internal extension seam for adding other *sources* of L2 facts
+without allowing each source to invent a different output vocabulary. The core
+currently ships one reader, using rtnetlink.
+
+## Testing and CI
+
+`sh tests/run.sh` replays source, discovery and device fixtures and runs the
+mechanical checks that enforce the project's design rules. CI additionally:
+
+- runs the browser-side hint/export/query/diff tests with Node;
+- validates every fixture JSON file;
+- runs current LuCI ESLint and checks that the translation template is current;
+- builds both intended packages in the official OpenWrt x86_64 SDK.
+
+Passing CI proves the tested parsing, merging, declaration, presentation logic
+and package integration. It cannot prove how an unseen physical driver behaves
+or how long its hardware reads take; those still need live validation.
+
+## Useful documentation
+
+Start with the document that matches what you are trying to do:
+
+- **Install or test it:** [`docs/getting-started.md`](docs/getting-started.md)
+- **Contribute or run the tests:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- **Understand the design rules:** [`docs/principles.md`](docs/principles.md)
+- **Understand the components and kernel reads:** [`docs/architecture.md`](docs/architecture.md)
+- **Consume the JSON snapshot:** [`docs/snapshot-format.md`](docs/snapshot-format.md)
+- **Understand or add a reader:** [`docs/readers.md`](docs/readers.md)
+- **Add hardware evidence/fixtures:** [`docs/fixtures.md`](docs/fixtures.md)
+- **See why design choices were made:** [`docs/decisions.md`](docs/decisions.md)
+- **See post-RC ideas that are deliberately out of current scope:** [`docs/roadmap.md`](docs/roadmap.md)
+- **See the upstream-hardening history and hardware matrix:** [`docs/remediation.md`](docs/remediation.md)
+
+## Feedback
+
+For an ordinary bug or confusing result, include the OpenWrt version, device
+model/target, the exact revision or tag tested, and what the **Device and
+data-source details** panel says.
+
+For a new hardware target, `sh tools/collect-validation.sh` creates a much more
+useful diagnostic bundle. **That bundle and the LuCI “Download JSON” export can
+contain real MAC addresses, IP addresses and hostnames. Do not post either
+publicly without reviewing/redacting it.** See `docs/getting-started.md` and
+`docs/fixtures.md`.
 
 ## Licence
 
-Apache-2.0, matching LuCI (`docs/decisions.md` D16).
+Apache-2.0.

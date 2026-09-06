@@ -5,10 +5,10 @@
 # the principles. Fixtures are discovered, never listed: adding a device class
 # or a reader means adding a directory (docs/decisions.md D14, D26).
 #
-#   tests/run.sh                          everything
-#   tests/run.sh devices/sw-bridge-novlan one device fixture
-#   tests/run.sh sources/rtnl             every case for one reader
-#   tests/run.sh checks                   the mechanical checks only
+#   sh tests/run.sh                          everything
+#   sh tests/run.sh devices/sw-bridge-novlan one device fixture
+#   sh tests/run.sh sources/rtnl             every case for one reader
+#   sh tests/run.sh checks                   the mechanical checks only
 
 set -u
 
@@ -152,16 +152,15 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "checks" ]; then
 		check "D17: no untranslated markup text" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
 	fi
 
-	# Hints are pure functions of displayed values, so they are unit tested.
-	# Node is a development convenience, not a device dependency: when it is
-	# absent the checks are reported unrun rather than passed (CONVENTIONS.md).
+	# Presentation policy is pure and unit tested outside the browser. Node is
+	# a development convenience, not a device dependency; CI must provide it.
 	if command -v node >/dev/null 2>&1; then
-		ran=$((ran + 1))
-		node "$ROOT/tests/hints.test.js" "$ROOT" || fail=1
-		ran=$((ran + 1))
-		node "$ROOT/tests/export.test.js" "$ROOT" || fail=1
+		for t in hints export query diff; do
+			ran=$((ran + 1))
+			node "$ROOT/tests/$t.test.js" "$ROOT" || fail=1
+		done
 	else
-		echo "  SKIP hint and export unit tests (node not present; both unchecked)"
+		echo "  SKIP hint, export, query and diff unit tests (node not present; all unchecked)"
 	fi
 fi
 

@@ -1,0 +1,125 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges": {
+      "status": "ok"
+    },
+    "ports": {
+      "status": "ok"
+    },
+    "fdb": {
+      "status": "indeterminate"
+    },
+    "neighbours": {
+      "status": "ok"
+    },
+    "names": {
+      "status": "ok",
+      "note": "read /etc/ethers; no address to name mappings in them"
+    }
+  },
+  "row_counts": {
+    "bridges": 1,
+    "ports": 3,
+    "fdb": 0,
+    "neighbours": 0,
+    "names": 0
+  },
+  "rows": [
+    {
+      "subject": {
+        "bridge": "br-lan"
+      },
+      "collection": "bridges",
+      "attrs": {
+        "br.name": "br-lan",
+        "br.address": "02:46:00:00:00:01",
+        "br.vlan_filtering": true
+      }
+    },
+    {
+      "subject": {
+        "bridge": "wan"
+      },
+      "absent_row": true
+    },
+    {
+      "subject": {
+        "bridge": "lan1"
+      },
+      "absent_row": true
+    },
+    {
+      "subject": {
+        "bridge": "phy0-ap0"
+      },
+      "absent_row": true
+    },
+    {
+      "subject": {
+        "bridge": "br-lan.20"
+      },
+      "absent_row": true
+    },
+    {
+      "subject": {
+        "port": "br-lan"
+      },
+      "absent_row": true
+    },
+    {
+      "subject": {
+        "port": "br-lan.20"
+      },
+      "absent_row": true
+    },
+    {
+      "subject": {
+        "port": "wan"
+      },
+      "collection": "ports",
+      "attrs": {
+        "topo.bridge": "br-lan",
+        "topo.address": "02:46:00:00:00:02",
+        "topo.vlans": [
+          1,
+          20
+        ]
+      }
+    },
+    {
+      "subject": {
+        "port": "lan1"
+      },
+      "collection": "ports",
+      "attrs": {
+        "topo.bridge": "br-lan",
+        "topo.address": "02:46:00:00:00:01",
+        "topo.vlans": [
+          1
+        ],
+        "topo.vlan_pvid": 1,
+        "topo.vlan_untagged": [
+          1
+        ]
+      }
+    },
+    {
+      "subject": {
+        "port": "phy0-ap0"
+      },
+      "collection": "ports",
+      "attrs": {
+        "topo.bridge": "br-lan",
+        "topo.address": "02:46:00:00:00:10",
+        "topo.vlans": [
+          20
+        ],
+        "topo.vlan_pvid": 20,
+        "topo.vlan_untagged": [
+          20
+        ]
+      }
+    }
+  ]
+}

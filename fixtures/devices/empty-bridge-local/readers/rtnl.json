@@ -1,0 +1,27 @@
+{
+  "api": 1,
+  "cost": "hardware-walk",
+  "describe": "Kernel bridge and neighbour tables via netlink",
+  "provides": ["bridges", "fdb"],
+  "collections": {
+    "bridges": { "status": "ok" },
+    "fdb": { "status": "ok" }
+  },
+  "rows": [
+    {
+      "subject": { "bridge": "br-empty" },
+      "attrs": {
+        "br.name": "br-empty",
+        "br.address": "02:00:00:00:00:01",
+        "br.vlan_filtering": false
+      }
+    },
+    {
+      "subject": { "mac": "02:00:00:00:00:01" },
+      "attrs": {
+        "fdb.port": "br-empty",
+        "fdb.flags": ["self", "permanent"]
+      }
+    }
+  ]
+}

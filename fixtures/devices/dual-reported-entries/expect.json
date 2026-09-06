@@ -2,9 +2,7 @@
   "scope": {
     "fdb": {
       "status": "ok",
-      "count": 8,
-      "entries_switch_reported": 2,
-      "entries_bridge_reported": 6
+      "count": 8
     },
     "ports": {
       "status": "ok",
@@ -15,6 +13,12 @@
       "count": 0,
       "note": "rtnl: read /etc/ethers; no address to name mappings in them"
     }
+  },
+  "scope_attrs_absent": {
+    "fdb": [
+      "entries_switch_reported",
+      "entries_bridge_reported"
+    ]
   },
   "counts": {
     "bridges": 1,

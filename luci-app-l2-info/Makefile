@@ -5,15 +5,13 @@
 
 include $(TOPDIR)/rules.mk
 
-LUCI_TITLE:=LuCI support for l2-info
+LUCI_TITLE:=MAC & VLAN Lookup
 LUCI_DESCRIPTION:=Look up which MAC addresses are on which ports and VLANs on \
 this device, from a snapshot taken on request.
 LUCI_DEPENDS:=+luci-base +l2-info
-LUCI_PKGARCH:=all
 
 PKG_LICENSE:=Apache-2.0
-PKG_VERSION:=0.1
-PKG_RELEASE:=1
+PKG_MAINTAINER:=David Evans <d@videvans.com>
 
 include ../../luci.mk
 

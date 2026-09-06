@@ -1,202 +1,213 @@
-# Fixtures
+# Fixtures and hardware evidence
 
-**Document class:** canonical mechanism for P8. This document owns the device
-class list, the on-disk layout, and the capture and redaction path.
+**Document class:** canonical mechanism for P8. This document owns the fixture
+layout, the distinction between replayable fixtures and live hardware evidence,
+and the privacy/redaction rules for material that may enter the repository.
 
-Fixtures are the *only* mechanism by which this project's device-agnosticism is
-more than a claim. There is no CI on a LuCI app and no lab of switches here, so
-a replayable capture per L2 arrangement, asserting on declarations rather than
-only on rows, is what makes "handles that case" checkable.
+A passing fixture is evidence about parsing, merging and presentation logic. It
+is not evidence that an unseen physical driver behaves the same way. The
+project therefore keeps two kinds of evidence deliberately separate:
 
-## Three seams
+- **fixtures** are synthetic/redacted data replayed in tests and CI;
+- **live validation** is a read-only run on real OpenWrt hardware, recorded in
+  `docs/remediation.md` when it materially changes or validates the design.
 
-Fixtures sit at two different boundaries because they test two different
-things, and conflating them is why "easy to add a class later" usually turns
-out to be false (`docs/decisions.md` D26).
+CI now runs every fixture, the browser-side unit tests, current LuCI lint/i18n,
+and official OpenWrt SDK package builds. There is still no physical switch lab
+in CI, so hardware behaviour and read cost remain live-validation questions.
 
-```
+## Three fixture seams
+
+The tree has three independent replay seams because they test different
+boundaries:
+
+```text
 fixtures/
-├── sources/<reader>/<case>/     raw source input  →  that reader's output
+├── sources/<reader>/<case>/     recorded source input -> reader output
 │   ├── NOTES.md
-│   ├── input.json               whatever the source emits, in its own shape
-│   └── expect.json              the reader's normalised rows and statuses
-├── devices/<class>/             normalised reader output  →  snapshot
+│   ├── input.json
+│   └── expect.json
+├── devices/<class>/             recorded reader output -> assembled snapshot
 │   ├── NOTES.md
-│   ├── readers/<id>.json        one file per reader present, its read() result
-│   └── expect.json              scope, conflicts, hints, derived values, rows
-└── discovery/<case>/            a directory of reader files  →  what loaded
+│   ├── readers/<id>.json
+│   └── expect.json
+└── discovery/<case>/            reader files -> discovery result
     ├── NOTES.md
-    ├── readers/*.uc             valid and invalid manifests
-    └── expect.json              which loaded, and why each rejection happened
+    ├── readers/*.uc
+    └── expect.json
 ```
 
-**Source fixtures** are reader-specific and owned by whoever wrote the reader.
-They test parsing and status derivation: given this raw netlink dump, or this
-`arl_table` text, does the reader produce these rows and declare these
-statuses.
+### Source fixtures
 
-**Discovery fixtures** are a directory of real reader files, valid and invalid.
-They exist because the other two harnesses start *after* discovery, so without
-them manifest validation and api-version rejection would be untested — and
-those are the paths that decide whether an unusable reader is visible or
-silently absent.
+A source fixture is owned by one reader. It feeds recorded source data through
+the real reader and asserts the reader's normalised rows and collection
+statuses. Examples currently cover successful and empty rtnetlink dumps,
+netlink errors, missing rtnl support, generic/AF_BRIDGE link-shape variations,
+empty bridges, Realtek/Filogic DSA shapes, and the all-zero FDB placeholder case.
 
-**Device fixtures** are source-independent. Their input is normalised reader
-output, so a swconfig device and a DSA device produce fixtures in *the same
-shape* for *the same harness*, with no per-source stub. They test the
-assembler: merging, scope declaration, derivation, hint firing.
+This is where a source-specific parser or kernel-shape rule is tested.
 
-The second property is the important one. It means a device class can be
-contributed for hardware whose reader already exists without touching reader
-code, and that adding a reader does not require touching the device harness.
+### Device fixtures
 
-A missing input means that read is absent, which is itself a case worth
-testing — a device fixture with no `readers/lldp.json` asserts that
-LLDP-provided attributes are declared unclaimed rather than rendered blank.
-A device fixture may deliberately include a reader whose result is an
-exception, asserting that one failing reader does not prevent a snapshot
-(`docs/readers.md` §5).
+A device fixture starts **after** source parsing. Its `readers/*.json` files are
+normalised `read()` results, so the same assembler harness works for every
+source. These fixtures test:
 
-## Expectations assert declarations first
+- collection-status rollup and declarations;
+- observation identity and merging;
+- conflicts and disputed values;
+- derived joins/counts/classifications;
+- hint firing and silence through the Node tests.
 
-```json
-{
-  "scope": {
-    "fdb": { "status": "indeterminate" },
-    "bridge_vlans": { "status": "ok" },
-    "readers": { "rtnl": { "status": "ok" } },
-    "conflicts": []
-  },
-  "hints": {
-    "fire": ["fdb_empty_indeterminate"],
-    "silent": ["no_vlan_filtering"]
-  },
-  "rows": {
-    "fdb_count": 0,
-    "ports_count": 9,
-    "vlan_source_pvid_count": 0
-  }
-}
-```
+Current classes include software bridges with and without VLAN filtering,
+DSA-style FDB cases, bridge-per-VLAN, one MAC on several ports, duplicate
+reported observations, an empty bridge with its own local address, no readers,
+a throwing reader, and a reader conflict.
 
-The ordering is deliberate. A fixture whose expectations name only `rows` fails
-as incomplete, because row parsing is the part least likely to be wrong and
-scope declaration is the part this project exists to get right. `hints.silent`
-matters as much as `hints.fire`: a hint firing on the wrong class is the P5
-failure mode that a fire-only assertion cannot catch. `conflicts` is asserted
-even when empty, because an unexpected conflict and an unnoticed one are the
-same bug.
+A new hardware arrangement whose source reader already exists should normally
+be representable by adding a directory, not by changing the harness.
 
-## Starting device classes
+### Discovery fixtures
 
-Five, from `docs/architecture.md`. A starting set, not a closed one.
+Discovery tests start before `read()`. They use real reader files with valid and
+invalid manifests to assert loading, manifest validation, API-version handling
+and declared skip reasons. Without this seam, source/device replay would leave
+the mechanism that decides whether a reader exists effectively untested.
 
-| Directory | Class | Asserts, distinctively |
-|---|---|---|
-| `dsa-switch-fdb` | DSA, driver reports its hardware table | `entries_switch_reported` non-zero; bridge joined from links, since hardware rows carry no master |
-| `dsa-no-fdb-dump` | DSA, driver omits `port_fdb_dump` | `fdb.status = indeterminate`, **not** `unavailable`, and no boolean capability claim (P4) |
-| `sw-bridge-vlan` | software bridge, VLAN filtering on | VLAN ids present in rows; PVID fallback exercised on untagged arrivals |
-| `sw-bridge-novlan` | software bridge, filtering off | `bridge_vlans.status = not_applicable` with reason; every `vlan_source` null; VLAN column not rendered as empty |
-| `bridge-per-vlan` | one bridge per VLAN, netdev-layer tagging | per-port VLAN data present but content-free; not presented as segment membership |
+## Expectations assert declarations, not just rows
 
-A sixth class is a directory and a `NOTES.md`. A class that needs a harness
-change is a bug in the harness.
+A useful fixture does not merely say how many rows came out. It asserts the
+parts of the contract that make an empty or partial-looking result honest.
+A device expectation therefore covers, as applicable:
 
-Two further device fixtures exist for the reader mechanism itself rather than
-for hardware: one with no readers at all, asserting that every collection is
-declared `not_applicable` with a reason naming the absence (P9); and one whose
-reader throws, asserting the snapshot still assembles.
+- collection statuses and important reasons/notes;
+- `scope.readers` health/coverage;
+- `scope.conflicts`, including the expected empty case;
+- significant derived values or negative assertions;
+- hints that must fire **and** hints that must remain silent.
 
-## Capture
+The exact expectation schema is enforced by the replay/test code. A deliberately
+supplied input field should have a corresponding assertion; otherwise it only
+looks like coverage.
 
-Coverage cannot grow past the hardware in one person's house unless people can
-contribute captures from devices neither maintainer owns — which upstreaming
-makes a certainty rather than a hope. So the backend can emit its own raw
-netlink responses in the fixture layout:
+## Running the fixtures
+
+Run the complete local suite with:
 
 ```sh
-ubus call l2-info capture > l2-info-fixture.json
+sh tests/run.sh
 ```
 
-One command on the device, one file to send. The output carries **both** seams:
-each reader's raw source input, and that reader's normalised output. Raw input
-keeps the source fixture testing parsing rather than freezing whatever the
-parser did on the day; normalised output gives the device fixture its input and
-lets the pair be cross-checked against each other (`docs/decisions.md` D26).
-
-This is the one place a second ubus method is justified, and it needs a
-decision record before it is built (`docs/decisions.md` D21, open). The
-alternative — asking contributors to run several `ubus`/`ip` commands and paste
-the output — produces inconsistent captures and gets the redaction wrong.
-
-## Redaction
-
-A real capture is full of real MAC addresses, hostnames and IPs. Contributors
-will send them to a public repository. The related fleet project's experience
-here is instructive: its first anonymiser was a deny-list, and a deny-list can
-only catch what it already knows about — it missed 574 long-form DHCP
-client-ids because nobody had thought of that shape.
-
-So redaction is a **positive rewrite**, not a filter:
-
-- **MACs** are mapped deterministically into a documented synthetic range. The
-  mapping is stable within a capture, so a MAC appearing on two ports still
-  appears on two ports and the topology relationships that make the fixture
-  interesting survive intact.
-- **Hostnames and IPs are dropped**, not remapped. They are annotation, not
-  structure, and nothing in a fixture's value depends on them. Attempting to
-  remap them is how you end up needing a deny-list.
-- **Bridge and interface names** are kept — `br-lan`, `lan5`, `eth0.10` are
-  conventional and structural. A name that is not conventional (`br-Rico`) is
-  site information; names are matched against a permitted pattern and replaced
-  with an indexed synthetic name when they do not match.
-- **Board, target and kernel are kept.** They are product facts, not site
-  facts, and they are the whole point of the fixture.
-
-Rewriting happens in the capture command on the device, before anything is
-written, so an unredacted capture never exists as a file to be sent by
-accident.
-
-The guardrail is that a fixture directory must contain no identifier outside
-the synthetic space and the permitted-name patterns, checked by the test runner
-over every fixture rather than at capture time — because the check has to hold
-for fixtures contributed by people who did not run the current version of the
-capture command.
-
-## Running
+Useful focused forms are:
 
 ```sh
-tests/run.sh                          # every fixture, plus the checks
-tests/run.sh devices/dsa-no-fdb-dump
-tests/run.sh sources/rtnl
-tests/run.sh checks                   # mechanical checks only
-
-# with a locally built ucode rather than a device's:
-UCODE=~/ucode/build/ucode UCODE_LIB=~/ucode/build tests/run.sh
+sh tests/run.sh devices/dsa-no-fdb-dump
+sh tests/run.sh sources/rtnl
+sh tests/run.sh checks
 ```
 
-`replay-source.uc` builds a reader context from the fixture and runs that
-reader unmodified; because readers are handed their primitives rather than
-importing them (D34), stubbing needs no hook in the reader itself.
-`replay-device.uc` substitutes recorded `read()` results for discovery and runs
-the assembler unmodified. `replay-discovery.uc` runs the real discovery against
-a directory of reader files.
+With a locally built host ucode:
 
-Hints live in the view, so they are not reachable from the ucode harnesses.
-`hints.test.js` tests them against the same device fixtures, assembling each
-through `emit-snapshot.uc` so the rules see the real assembler's output rather
-than a hand-written snapshot. Node is a development convenience: when it is
-absent the runner reports the hint checks unrun rather than passed.
+```sh
+UCODE=~/ucode/build/ucode UCODE_LIB=~/ucode/build sh tests/run.sh
+```
 
-Both require that every read sits behind a single seam: one wrapper inside each
-reader, and the discovery call inside the assembler. Stubbing is then total,
-and no test can accidentally reach a real kernel (`docs/decisions.md` D18).
+When Node is present, `tests/run.sh` also runs the hint, export, query/filter and
+diff/scope unit tests. A target device without Node reports those tests as
+skipped; CI always supplies Node, so they are mandatory in repository
+validation.
 
-## What a fixture cannot do
+The runner discovers fixture directories rather than maintaining a hard-coded
+list. Adding a fixture therefore makes it part of the normal test run without a
+runner edit.
 
-Fixtures prove parsing, joining, declaration and hint logic. They cannot prove
-that a real driver behaves as its fixture claims, and they say nothing about
-cost — the register-walk expense described in `docs/architecture.md` is
-invisible to a replay, and a reader's declared `cost` is a claim no fixture can
-check. Both need real hardware, and both should be recorded as such rather than
-implied by a passing test suite.
+## Live hardware validation
+
+For a new or unusual device, use the copied-checkout validation helper after the
+backend has been installed:
+
+```sh
+cd /tmp/l2-info
+sh tools/collect-validation.sh
+```
+
+By default it creates `/tmp/l2-info-validation-<timestamp>/` containing:
+
+- `ubus call system board` output;
+- runtime ucode-module checks;
+- one production `l2-info` snapshot;
+- a safe rtnetlink link probe;
+- optional `bridge -j` link/VLAN/FDB cross-checks when the `bridge` command is
+  installed;
+- `sh tests/run.sh` output;
+- hashes of copied/installed files when `sha256sum` is available.
+
+The collector deliberately performs only one production snapshot because some
+switch drivers make an FDB dump a relatively expensive hardware walk. It does
+not alter bridge, VLAN, interface or forwarding configuration.
+
+The detailed hardware-validation matrix belongs in `docs/remediation.md` rather
+than here.
+
+## Raw validation data is private until reviewed
+
+`tools/collect-validation.sh` records **raw evidence**. Its output can contain
+real:
+
+- MAC addresses;
+- IP addresses;
+- hostnames;
+- interface/bridge names;
+- board/target/kernel information.
+
+Do **not** attach a raw bundle to a public forum post, issue, pull request or
+fixture directory. Copy it off the device for private analysis first.
+
+The LuCI **Download JSON** export also describes a real network and should be
+reviewed before public sharing.
+
+## Redaction for committed fixtures
+
+D15 uses positive rewrite rather than a deny-list. Material committed under
+`fixtures/` must satisfy these rules:
+
+- MAC addresses are deterministically remapped into the project's documented
+  synthetic ranges while preserving relationships within the fixture;
+- IP addresses and hostnames are removed when they are merely local annotation;
+- conventional structural interface names may remain; unusual site-specific
+  names are replaced with synthetic names;
+- board, target and kernel may remain because they are the hardware evidence
+  the fixture exists to record.
+
+`tests/run.sh` includes a guardrail over committed fixtures for non-synthetic
+MAC addresses. Redaction still requires human review: a mechanical MAC check is
+not a general privacy scrubber.
+
+## There is no `capture` ubus method yet
+
+D21 records a possible future contributor-oriented capture/redaction facility.
+It is **open design work**, not current functionality. In particular this does
+not work today:
+
+```text
+ubus call l2-info capture
+```
+
+If D21 is implemented later, it must preserve both fixture seams established by
+D26: raw source-shape evidence for source fixtures and normalised reader output
+for device fixtures. Until then, `tools/collect-validation.sh` is the supported
+way to gather live evidence, and its output must be treated as raw/private.
+
+## What fixtures and CI do not prove
+
+They do not prove:
+
+- that a driver on hardware we have never seen exposes the same rtnetlink
+  shapes;
+- that a device's forwarding table is visible rather than merely empty;
+- how long a hardware FDB walk will take;
+- that arbitrary third-party reader code is sandboxed (readers are trusted
+  package code).
+
+Those boundaries are intentional. Passing tests should be described as passing
+tests, and live hardware validation as live hardware validation.

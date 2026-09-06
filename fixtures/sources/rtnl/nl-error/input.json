@@ -1,4 +1,9 @@
 {
+  "link_generic": {
+    "rows": [
+      { "ifname": "br-lan", "linkinfo": { "type": "bridge" } }
+    ]
+  },
   "link_bridge": {
     "rows": [
       { "ifname": "br-lan", "address": "02:aa:bb:cc:dd:00", "carrier": true },

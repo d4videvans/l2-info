@@ -1,0 +1,46 @@
+{
+  "scope": {
+    "bridges": { "status": "ok", "count": 1 },
+    "fdb": { "status": "ok", "count": 1 }
+  },
+  "scope_attrs_absent": {
+    "fdb": [
+      "entries_switch_reported",
+      "entries_bridge_reported"
+    ]
+  },
+  "counts": {
+    "bridges": 1,
+    "ports": 0,
+    "fdb": 1,
+    "neighbours": 0,
+    "names": 0
+  },
+  "conflicts": 0,
+  "entities": [
+    {
+      "collection": "bridges",
+      "subject": { "bridge": "br-empty" },
+      "attrs": {
+        "br.address": "02:00:00:00:00:01",
+        "br.vlan_filtering": false
+      },
+      "derived": { "port_count": 0 },
+      "source": "rtnl"
+    },
+    {
+      "collection": "fdb",
+      "subject": { "mac": "02:00:00:00:00:01" },
+      "where": { "fdb.port": "br-empty" },
+      "derived": {
+        "mac_class": "unicast",
+        "local": true,
+        "vlan": null,
+        "vlan_source": null,
+        "bridge": null,
+        "on_bridge_device": true
+      },
+      "source": "rtnl"
+    }
+  ]
+}

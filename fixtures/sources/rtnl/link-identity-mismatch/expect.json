@@ -1,0 +1,11 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "bridges":    { "status": "unavailable", "reason": "AF_BRIDGE link 'lan1' names master 'br-lan', which the generic link dump did not identify as a bridge" },
+    "ports":      { "status": "unavailable", "reason": "AF_BRIDGE link 'lan1' names master 'br-lan', which the generic link dump did not identify as a bridge" },
+    "fdb":        { "status": "indeterminate" },
+    "neighbours": { "status": "ok" },
+    "names":      { "status": "ok", "note": "read /etc/ethers; no address to name mappings in them" }
+  },
+  "row_counts": { "bridges": 0, "ports": 0, "fdb": 0, "neighbours": 0, "names": 0 }
+}

@@ -1,229 +1,272 @@
-# Upstream remediation plan
+# Upstream remediation and readiness status
 
-**Status:** active work plan following the September 2026 architecture and
-OpenWrt/LuCI review.
+**Status:** the correctness/portability remediation, planned hardware sweep,
+package hygiene and reproducible CI work are complete for the current design.
+R5 remains deliberately deferred because the hardware sweep did not produce the
+partial-attribute evidence that would justify expanding the schema.
 
-The aim is not to make `l2-info` more ambitious. It is to make the existing
-narrow design more truthful, portable and straightforward to review upstream.
-The existing principles remain the default: observation over classification,
-explicit uncertainty, one user-triggered snapshot, read-only behaviour and a
+The project is now in a **pre-upstream external testing phase**: make it easy to
+install/remove, invite OpenWrt community testing on hardware we do not own,
+collect usability/portability feedback, then prepare the two upstream
+submissions.
+
+The purpose of this work has remained narrow: make `l2-info` truthful, portable
+and reviewable without expanding it into a topology/fleet-management product.
+The governing principles remain observation over classification, explicit
+uncertainty, one user-triggered snapshot, read-only/stateless behaviour and a
 small ubus surface.
 
 ## Priority classes
 
-- **P0 — correctness / trust model:** fix before expanding coverage.
-- **P1 — portability / data-contract hardening:** fix before upstream review.
-- **P2 — integration / UI / packaging:** fix before submission where practical.
-- **P3 — later polish:** useful, but not an upstream blocker.
+- **P0 — correctness / trust model:** required before wider testing.
+- **P1 — portability / data-contract hardening:** required before wider testing.
+- **P2 — integration / UI / packaging:** required before upstream submission.
+- **P3 — polish/workflow:** useful, not a reason to invent product scope.
 
 ## Phase 1 — correctness and trust model
 
-### R1 — Describe readers as trusted package code (P0)
+### R1 — Readers are trusted package code (P0) — done
 
-**Problem.** Readers are loaded as ucode into the rpcd process. Passing a
-context containing `nl`, `fs` and `ubus` makes fixture replay and dependency
-injection clean, but it is not a sandbox: a reader can import modules itself,
-and the raw rtnetlink and generic ubus handles are not capability-restricted.
-The current documentation overstates this as making a reader structurally
-incapable of writing.
+The reader context is dependency injection and a fixture seam, not a sandbox.
+Installed reader ucode runs inside rpcd and can import modules itself. D34,
+`docs/readers.md`, `CONVENTIONS.md` and source comments were corrected to remove
+the former over-claim while preserving the conforming-reader contract.
 
-**Decision.** Treat installed readers as trusted package code. `read(ctx)` is a
-contract and a testability seam, not a security boundary. A conforming reader
-uses the supplied observational primitives only. Actual sandboxing would need a
-separate process / privilege boundary and is out of scope unless a future
-threat model justifies that machinery.
+### R2 — Unambiguous movement inference (P0) — done
 
-**Work.** Amend D34, `docs/readers.md`, `CONVENTIONS.md`, architecture comments
-and source comments so no sandbox claim remains. Keep the read-only LuCI ACL,
-no-write application behaviour and P7 unchanged.
+A MAC may legitimately have several simultaneous FDB observations. `moved` is
+therefore inferred only when exactly one qualifying remote-unicast observation
+vanished and exactly one appeared. Ambiguous 1->N/N->1/N->N cases remain
+primitive appeared/vanished evidence. VLAN-only changes on one port are not
+port moves.
 
-**Done when.** A repository search contains no claim that readers are
-structurally unable to write, and the trust boundary is stated explicitly.
+The comparison logic is pure/tested outside the browser.
 
-### R2 — Make snapshot movement inference unambiguous (P0)
+### R2a — Non-rendering view logic under tests (P0/P1) — done
 
-**Problem.** One MAC may legitimately have several simultaneous FDB
-observations. The current view pairs every appeared observation with every
-vanished observation sharing a MAC, which can produce Cartesian-product
-"moves" and then suppress the raw evidence.
+Hint, export, query/filter, diff and scope-compatibility logic has direct Node
+tests. A target device without Node may skip them in `sh tests/run.sh`, but CI
+always supplies Node, so they are mandatory in repository validation.
 
-**Decision.** Report `moved` only when exactly one vanished and exactly one
-appeared observation exist for a MAC. Otherwise show the primitive appeared /
-vanished evidence and make no movement inference. Local and non-unicast
-addresses should not receive a movement inference.
+### R3 — Compare acquisition scope before diffing (P1) — done
 
-**Work.** Rewrite `diff()` grouping by MAC; add unit tests for 1→1, 1→N, N→1,
-N→N, local and multicast cases.
-
-**Done when.** Ambiguous changes can never be rendered as an unqualified move.
-
-### R3 — Compare acquisition scope, not only rolled-up status (P1)
-
-**Problem.** Two snapshots can both have `scope.fdb.status == ok` while the set
-of successful readers changed. Diffing them can therefore compare different
-observation coverage and present that as network change.
-
-**Decision.** Define a comparison fingerprint from snapshot format/version,
-collection statuses and successful reader coverage. Strong diffs require equal
-fingerprints. Reader diagnostics which do not affect contributed coverage may
-be ignored.
-
-**Work.** Add a pure compatibility function and fixture/unit coverage for a
-reader disappearing while another keeps the collection `ok`.
-
-**Done when.** A changed observation surface prevents a normal diff and is
-explained to the user.
+Strong FDB comparisons require compatible `bridges`, `ports` and `fdb`
+collection status/reader coverage. These are load-bearing because FDB is the
+observed change set, port PVID can change resolved VLAN identity, and both port
+and bridge addresses affect `derived.local`. Names/neighbours are annotation.
 
 ## Phase 2 — source and data-contract portability
 
-### R4 — Detect bridge devices independently of membership (P1)
+### R4 — Bridge identity independent of membership (P1) — done; hardware verified
 
-**Problem.** Current bridge discovery is primarily based on names observed as
-`master`, including self-master behaviour observed on rtl839x. That is not a
-sufficiently broad basis for empty bridges or differing kernel/driver shapes.
+Bridge identity comes from generic RTM_GETLINK `linkinfo.type == "bridge"`;
+AF_BRIDGE RTM_GETLINK supplies membership/VLAN facts. An AF_BRIDGE master absent
+from the generic bridge set is an inconsistency, not permission to infer a
+bridge.
 
-**Decision.** Establish bridge identity from an authoritative link property
-(e.g. rtnetlink link kind) independently of port membership. AF_BRIDGE data
-continues to provide bridge-port and VLAN information.
+This handles empty bridges and the different live DSA/router link shapes seen
+across x86, Realtek, Mediatek and Qualcomm targets.
 
-**Work.** Confirm the shape exposed by current `ucode-mod-rtnl`; add an empty
-software bridge source fixture and real x86 capture before changing the reader
-if necessary.
+### R5 — Preserve valid partial observations (P1) — deferred by evidence
 
-**Done when.** An empty bridge is reported as a bridge with zero ports on at
-least generic x86 Linux/OpenWrt, and existing switch fixtures remain stable.
+A hypothetical reader could successfully identify an entity while failing to
+read one required attribute. The current collection-level contract cannot
+retain rows for a non-`ok` collection without a schema decision.
 
-### R5 — Preserve valid partial observations (P1)
+The completed hardware sweep did **not** produce this case. Whenever the rtnl
+reader was usable, the relevant live collections were wholly `ok`; a missing
+runtime module made the whole source unavailable rather than producing partial
+entity evidence.
 
-**Problem.** A collection-level non-`ok` status currently forbids all rows for
-that collection. One unreadable bridge attribute can therefore discard other
-bridge facts which were read successfully.
+**Reopen only when:** a captured real source has valid entity evidence and an
+attribute failure coexisting in the same collection. Add a decision record
+before changing v1 semantics.
 
-**Decision work required.** Settle the smallest schema change that preserves
-P1/P9 while allowing partial evidence. Candidate model: collection acquisition
-can remain `ok` when entity identity was read, while unreadable optional
-attributes are omitted and an attributed coverage note records what could not
-be read. Reserve non-`ok` for failure to establish the collection itself.
+### R6 — No special no-bridge FDB rule (P1) — rejected by evidence
 
-**Work.** Add a decision record before changing schema semantics; add mixed
-bridge-state fixtures; update snapshot documentation and validation together.
+Live x86 testing showed AF_BRIDGE FDB can still return protocol/self entries
+when no Linux bridge exists. Bridge existence is therefore not the applicability
+boundary for the FDB read. Successful zero-row FDB remains `indeterminate` when
+one sample cannot distinguish true emptiness from an observation gap.
 
-**Done when.** Failure to read one optional bridge property cannot erase known
-bridge identities, without making an omitted value ambiguous.
+### R6a — FDB row shape is not hardware/software provenance (P0/P1) — done
 
-### R6 — Revisit genuinely-empty FDB semantics with positive context (P1)
+Pure software bridges produced the same `self`/no-master shapes that initially
+looked hardware-specific on a Realtek switch. The invalid development counters
+`entries_switch_reported`/`entries_bridge_reported` were removed. Raw flags and
+bridge/master facts remain; `scope.fdb.count` is neutral pre-merge observation
+count.
 
-**Problem.** Any successful empty FDB dump is currently `indeterminate`. That
-is conservative for a live bridge/switch, but may be unnecessarily weak when
-positive topology evidence shows that no bridge exists.
+### R6b — Bridge/device own MAC participates in locality (P1) — done; hardware verified
 
-**Decision work required.** Preserve P4. Permit `ok` + zero rows only where
-other positive evidence makes the empty result determinate; never infer lack of
-hardware offload from the empty dump itself.
+Generic RTM_GETLINK supplies `br.address`; `derived.local` joins FDB MACs against
+both reported port and bridge addresses. No locality is inferred merely from
+`self` or from the FDB row's interface being a bridge.
 
-## Phase 3 — LuCI and API integration
+### R6c — Successful zero-row rtnetlink dumps (P0/P1) — done
 
-### R7 — Clean up the age timer lifecycle (P2)
+Current `ucode-mod-rtnl` may return null plus no error for a successful empty
+multipart dump. The wrapper normalises that exact pair to an empty row set; a
+real rtnl error remains unavailable. The `null-empty-dump` fixture and current
+mandatory CI close the regression gap.
 
-Retain and cancel the `setInterval()` created by the view so navigating in and
-out cannot accumulate timers holding old DOM nodes. This does not change P6:
-there is still no data polling or automatic refresh.
+### R6d — Reject all-zero FDB placeholder identities (P0/P1) — done; hardware verified
 
-### R8 — Make status/reason presentation localisable and machine-stable (P2)
+A Linksys SPNMX56 produced large unstable runs of
+`00:00:00:00:00:00` FDB placeholders with unrelated-looking VIDs. The reader
+drops only the unusable all-zero address identity. In the post-fix validation,
+121 non-zero `(MAC, port, VLAN)` identities matched `bridge -j fdb show`
+one-for-one while 1,301 all-zero placeholders were excluded.
 
-Backend status values are stable codes and should be translated in LuCI.
-Backend reasons which are currently English prose should evolve toward a
-stable reason code plus optional technical detail, so clients do not have to
-interpret human text and the UI can localise the explanation.
+## Phase 3 — LuCI/API integration
 
-Do this without making version 1 exports silently change meaning: either add
-backwards-compatible fields or make the format-version consequence explicit in
-a decision record.
+### R7 — Age timer lifecycle (P2) — done
 
-### R9 — Validate query inputs (P2)
+The view keeps one age-update chain, stops naturally after navigation and never
+polls data. Only the displayed age changes until the user presses Update again.
 
-Use explicit VLAN validation (1–4094 where a VLAN ID is intended) rather than
-permissive `parseInt()`. Keep partial MAC matching, but reject/visibly mark
-inputs which normalise to something misleading.
+### R8 — Stable labels/i18n (P2) — done
+
+User-facing stable labels are translated, reader collection notes are displayed,
+and the LuCI POT is generated/current. CI runs current LuCI's i18n scanner and
+fails if the committed template drifts.
+
+Reason-code machinery remains intentionally deferred; reader/source reasons are
+currently free text evidence, not a stable public enum.
+
+### R9 — Strict query validation (P2) — done
+
+VLAN input is whole-string/range validated (1–4094); MAC search validation is
+explicit and visible. Query/filter policy has direct Node tests.
 
 ## Phase 4 — upstream packaging and CI
 
-### R10 — Make the two feed packages independently clean (P2)
+### R10 — Two independently clean feed packages (P2) — done for current pre-submission tree
 
-Backend (`openwrt/packages`):
+Backend (`openwrt/packages` target):
 
-- set a real maintainer;
-- fix/remove `PKG_LICENSE_FILES` so it refers to a file actually present in the
-  package contribution;
-- verify category/submenu choice against the target feed;
-- verify dependencies on current OpenWrt master;
-- verify rpcd reload/install behaviour.
+- real maintainer metadata set;
+- Apache-2.0 metadata consistent with the project licence;
+- no invalid `PKG_LICENSE_FILES` reference;
+- package placed directly under **Network**, not `Routing and Redirection`;
+- project URL set;
+- current runtime dependencies declared:
+  `rpcd-mod-ucode`, `ucode-mod-fs`, `ucode-mod-rtnl`, `ucode-mod-ubus`;
+- architecture-independent payload (`PKGARCH:=all`);
+- rpcd reload path live-verified and SDK-built.
 
-LuCI (`openwrt/luci`):
+LuCI (`openwrt/luci` target):
 
-- set/confirm maintainer metadata;
-- regenerate the POT with LuCI tooling;
-- run LuCI JS/style checks used by current CI;
-- verify menu/ACL naming and install paths after splitting from this monorepo.
+- maintainer metadata set;
+- `luci-base + l2-info` dependency explicit;
+- POT regenerated and drift-gated;
+- current LuCI ESLint/i18n checks pass;
+- menu location **Status -> MAC & VLAN Lookup** and the read-only ACL match
+  current LuCI status-app patterns;
+- official SDK build successfully produces the LuCI package with the backend.
 
-### R11 — Add reproducible CI/build checks (P2)
+The two directories remain in this monorepo for development/testing but are
+shaped for separate upstream submissions.
 
-CI should make currently optional checks mandatory and distinguish unit logic
-from upstream integration:
+### R11 — Reproducible CI/build checks (P2) — done
 
-1. ucode source/discovery/device fixture suite;
-2. Node hint/export/diff tests;
-3. shell/static checks;
-4. backend package build against a pinned/current OpenWrt tree;
-5. LuCI package build/check against a pinned/current LuCI tree.
+Repository CI now has three mandatory layers:
 
-Until a full build job exists, do not describe the repository tests as proving
-feed integration.
+1. **unit/fixture/mechanical:** pinned host ucode, fixture JSON validation,
+   source/discovery/device replay, mechanical checks and Node
+   hint/export/query/diff tests;
+2. **current LuCI integration:** current LuCI tree, ESLint and translation
+   template drift check;
+3. **official OpenWrt SDK package build:** both intended packages in
+   `openwrt/sdk:x86_64-master` with the required base-feed source packages
+   staged.
 
-### R12 — Make the test runner invocation unambiguous (P3)
+The SDK gate initially exposed a CI-environment defect rather than an l2-info
+package defect: only `packages`/`luci` feeds had been populated, so LuCI's
+`lucihttp` build failed on missing `lua.h`. A local official-SDK reproduction
+showed the backend already built cleanly; selectively staging the relevant base
+source packages made the LuCI build succeed too. CI was corrected without
+weakening the build targets/gate.
 
-Either mark `tests/run.sh` executable in git or document `sh tests/run.sh`
-consistently.
+Run `34026863495` at commit `a2f4ef2` completed all three jobs successfully,
+including the official two-package SDK build. The subsequent metadata/category
+state at commit `355f49e7` also completed the same three-job workflow green in
+run `34027255403`. Later repository changes remain subject to the same workflow.
+
+### R12 — Unambiguous local test invocation (P3) — done
+
+Documentation consistently uses:
+
+```sh
+sh tests/run.sh
+```
+
+so archive/WinSCP workflows do not depend on preserved executable bits.
+
+## Phase 5 — external tester release before upstream submission
+
+### R13 — Make pre-upstream testing easy and reversible (P2/P3) — active
+
+This phase was added after the internal remediation completed. The goals are:
+
+- a concise, user-oriented README rather than a development diary;
+- one practical installation/troubleshooting guide;
+- `tools/install-test.sh` as the one-command copied-checkout installer;
+- `tools/uninstall-test.sh` removing only project files and leaving shared
+  dependencies alone;
+- explicit privacy guidance around exported snapshots/validation bundles;
+- documentation reconciled with the current v1 contract and current UI;
+- a stable pre-release tag/revision for external testers;
+- an OpenWrt Forum introduction in **Community Builds, Projects & Packages** to
+  test usefulness and hardware portability before opening upstream PRs.
+
+This is intentionally a test phase, not a new product-development phase. Forum
+feedback should first answer: does the tool solve a useful problem, is the
+installation/UI legible, which new hardware shapes appear, and is any snapshot
+cost unacceptable?
 
 ## Hardware validation matrix
 
-The immediate available devices give useful diversity rather than merely more
-samples of one switch.
+The planned diversity sweep is complete for the current portability questions.
 
-| Device | Primary purpose | Evidence to capture |
+| Device | State | Primary evidence |
 |---|---|---|
-| x86 OpenWrt box | Generic software bridge baseline | empty bridge, populated bridge, VLAN-filtered and non-filtered bridge, no-bridge case if practical |
-| Zyxel GS1920-24 v1 | Existing rtl839x reference | regression baseline; hardware/software FDB duplication and scan cost |
-| Zyxel GS1900-8 | Second Realtek switch family | bridge/FDB representation, VLAN flags, hardware dump behaviour, timing |
-| Cudy WR3000P v1 | Contemporary router/DSA case | router topology, CPU/user ports, VLAN handling, neighbour/name behaviour |
-| Linksys Atlas Pro 6 MX5600 / SPNMX56 | Different router/DSA platform | same checks on a materially different target/driver stack |
-| Linksys EA8300 | Older router/DSA platform | compatibility across older hardware/driver assumptions |
+| x86/64 OpenWrt 25.12.5 / 6.12.94 | complete for current software-bridge questions | no-bridge, empty/populated/VLAN-filtered bridge; exposed/corrected no-bridge, provenance and null-empty assumptions |
+| Zyxel GS1920-24 v1 | rtl839x complete for current questions | generic bridge identity/address; 28 ports; locality; roughly 1.2–1.3 s hardware walk |
+| Zyxel GS1900-8HP B1 | rtl838x complete | one bridge/eight ports; distinct per-port addresses; nested DSA slave metadata; management VLAN child excluded; 141 raw FDB rows matched cross-check |
+| Cudy WR3000P v1 | Filogic/router complete | one bridge/eight mixed wired/Wi-Fi ports; AF_BRIDGE membership where generic kind is absent; duplicate flag-only observations merged; ~233 ms |
+| Linksys SPNMX56 | qualcommax/ipq50xx complete | one bridge/nine ports; all-zero qca8k FDB placeholders discovered/fixed; exact non-zero cross-check; ~915 ms |
+| Linksys EA8300 | ipq40xx complete | one bridge/eleven mixed ports; VLAN children excluded; 175 raw observations -> 141 merged identities matching cross-check; ~396 ms |
 
-For each device, record:
+The physical sweep did not produce an R5 partial-attribute case.
 
-- `ubus call system board`;
-- snapshot duration and collection statuses;
-- `bridge -j link`, `bridge -j vlan show`, `bridge -j fdb show` where available
-  for cross-checking only (not as the product data path);
-- whether FDB rows expose hardware/software duplicates;
-- whether bridge devices identify cleanly when empty;
-- any collection which is partial, empty or unavailable and why.
+## Evidence to collect from new external targets
 
-Raw captures must follow D15 redaction before being committed as fixtures.
+Start publicly with low-risk metadata and scope information:
 
-## Suggested execution order
+- device model;
+- OpenWrt version/target/kernel;
+- exact test tag/revision;
+- snapshot duration;
+- collection/reader statuses and reasons;
+- presentation screenshots where relevant.
 
-1. R1 reader trust wording.
-2. R2 movement correctness + tests.
-3. R3 comparison fingerprint + tests.
-4. x86 capture to settle R4 rather than guessing about rtnetlink shape.
-5. R4 bridge detection implementation.
-6. R5/R6 partial/empty semantics decisions and implementation.
-7. Router/switch hardware sweep and fixtures.
-8. R7–R9 LuCI/API polish.
-9. R10–R12 packaging and CI.
-10. Final current-master OpenWrt/LuCI review before upstream PRs.
+`tools/collect-validation.sh` is available when deeper evidence is required, but
+its output is raw and can contain MAC addresses, IP addresses and hostnames. It
+must not be casually attached to a public forum/issue. `docs/fixtures.md` owns
+the redaction rules; D21's possible redacted capture helper is still unbuilt.
 
-The plan is deliberately ordered so hardware evidence settles portability
-questions before the data contract is made more complicated. Do not implement
-R4–R6 merely to satisfy this document if a real capture disproves the premise.
+## Next decision gate
+
+After a small external test round:
+
+1. fix concrete portability/usability defects found by testers;
+2. avoid speculative schema/features without evidence;
+3. tag the candidate intended for upstream review;
+4. re-read the current contribution requirements for each upstream tree;
+5. prepare separate backend and LuCI PRs, referencing the public testing/evidence
+   where useful.
+
+If forum interest is low, that is still useful evidence: the repository remains
+a working diagnostic without forcing upstream submission merely because the
+engineering is complete.

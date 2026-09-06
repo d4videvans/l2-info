@@ -11,17 +11,16 @@ PKG_VERSION:=0.1
 PKG_RELEASE:=1
 
 PKG_LICENSE:=Apache-2.0
-PKG_LICENSE_FILES:=LICENSE
-PKG_MAINTAINER:=
+PKG_MAINTAINER:=David Evans <d@videvans.com>
 
 include $(INCLUDE_DIR)/package.mk
 
 define Package/l2-info
   SECTION:=net
   CATEGORY:=Network
-  SUBMENU:=Routing and Redirection
   TITLE:=Layer 2 address, port and VLAN inspection
-  DEPENDS:=+rpcd +rpcd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-rtnl +ucode-mod-ubus
+  URL:=https://github.com/d4videvans/l2-info
+  DEPENDS:=+rpcd-mod-ucode +ucode-mod-fs +ucode-mod-rtnl +ucode-mod-ubus
   PKGARCH:=all
 endef
 

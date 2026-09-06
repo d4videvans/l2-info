@@ -12,6 +12,8 @@
 'require ui';
 'require dom';
 'require l2-info.hints as hints';
+'require l2-info.query as query';
+'require l2-info.diff as compare';
 
 var callSnapshot = rpc.declare({
 	object: 'l2-info',
@@ -31,8 +33,8 @@ function el(tag, attrs, children) {
 }
 
 function table(headings, rows, placeholder) {
-	var t = el('table', { 'class': 'table' }, [
-		el('tr', { 'class': 'tr table-titles' }, headings.map(function(h) {
+	var t = el('table', { 'class': 'table cbi-section-table' }, [
+		el('tr', { 'class': 'tr cbi-section-table-titles' }, headings.map(function(h) {
 			return el('th', { 'class': 'th' }, h);
 		}))
 	]);
@@ -40,86 +42,6 @@ function table(headings, rows, placeholder) {
 	cbi_update_table(t, rows, el('em', {}, placeholder));
 
 	return t;
-}
-
-/* --------------------------------------------------------------- filtering */
-
-function hexonly(s) {
-	return String(s || '').toLowerCase().replace(/[^0-9a-f]/g, '');
-}
-
-/* View policy, deliberately here and not in the backend: the snapshot holds
- * everything and the page decides what to show (D6). */
-function filterRows(snap, q) {
-	var want = hexonly(q.mac);
-	var vlan = (String(q.vlan).trim() === '') ? null : parseInt(q.vlan, 10);
-
-	return (snap.fdb || []).filter(function(r) {
-		if (!q.nonUnicast && r.derived.mac_class != 'unicast')
-			return false;
-
-		if (q.port && r.attrs['fdb.port'] != q.port)
-			return false;
-
-		if (vlan !== null && r.derived.vlan !== vlan)
-			return false;
-
-		if (want && hexonly(r.subject.mac).indexOf(want) < 0)
-			return false;
-
-		return true;
-	});
-}
-
-/* -------------------------------------------------------------------- diff */
-
-/* Two snapshots are comparable only if they declared the same scope. Without
- * this check a failed read in one of them reports every address as removed,
- * which is both wrong and entirely plausible-looking (D12). */
-function scopeCompatible(a, b) {
-	var differ = [];
-
-	[ 'bridges', 'ports', 'fdb', 'neighbours', 'names' ].forEach(function(c) {
-		var x = (a.scope[c] || {}).status, y = (b.scope[c] || {}).status;
-
-		if (x != y)
-			differ.push('%s (%s → %s)'.format(c, y, x));
-	});
-
-	return differ;
-}
-
-function diff(cur, prev) {
-	var key = function(r) {
-		return [ r.subject.mac, r.attrs['fdb.port'], r.derived.vlan ].join('/');
-	};
-
-	var a = {}, b = {}, out = { appeared: [], vanished: [], moved: [] };
-
-	(cur.fdb || []).forEach(function(r) { a[key(r)] = r; });
-	(prev.fdb || []).forEach(function(r) { b[key(r)] = r; });
-
-	Object.keys(a).forEach(function(k) { if (!b[k]) out.appeared.push(a[k]); });
-	Object.keys(b).forEach(function(k) { if (!a[k]) out.vanished.push(b[k]); });
-
-	/* "Moved" is an interpretation of a vanish/appear pair sharing a MAC, so
-	 * it stays in the view and is reported alongside its evidence, never as a
-	 * fact in the data (D12). */
-	out.appeared.forEach(function(r) {
-		out.vanished.forEach(function(p) {
-			if (r.subject.mac != p.subject.mac)
-				return;
-
-			out.moved.push({
-				mac: r.subject.mac,
-				from: p.attrs['fdb.port'], to: r.attrs['fdb.port'],
-				fromVlan: p.derived.vlan, toVlan: r.derived.vlan,
-				weak: (p.derived.vlan_source == 'pvid' || r.derived.vlan_source == 'pvid')
-			});
-		});
-	});
-
-	return out;
 }
 
 /* ------------------------------------------------------------------ export */
@@ -219,13 +141,120 @@ function fmtDisputed(e) {
 	});
 }
 
+function fmtStatus(status) {
+	if (status == 'ok')
+		return _('available');
+	if (status == 'unavailable')
+		return _('unavailable');
+	if (status == 'not_applicable')
+		return _('not applicable');
+	if (status == 'indeterminate')
+		return _('indeterminate');
+	if (status == 'skipped')
+		return _('skipped');
+
+	return status || _('unreported');
+}
+
+function fmtCollection(name) {
+	var labels = {
+		bridges: _('Bridges'),
+		ports: _('Ports'),
+		fdb: _('Forwarding database'),
+		neighbours: _('Neighbours'),
+		names: _('Names')
+	};
+
+	return labels[name] || name;
+}
+
+function fmtScopeStatus(st) {
+	var parts = [ fmtStatus(st.status) ];
+
+	if (st.reason)
+		parts.push(st.reason);
+	if (st.note)
+		parts.push(st.note);
+
+	return parts.join(' — ');
+}
+
+function coverageProblems(snap) {
+	return [ 'bridges', 'ports', 'fdb', 'neighbours', 'names' ].filter(function(c) {
+		var st = snap.scope[c] || {};
+		return st.status != 'ok' && st.status != 'not_applicable';
+	});
+}
+
+function fmtTopology(snap) {
+	var nb = (snap.bridges || []).length;
+	var np = (snap.ports || []).length;
+
+	if (nb == 1 && np == 1)
+		return _('1 bridge, 1 port');
+	if (nb == 1)
+		return _('1 bridge, %d ports').format(np);
+	if (np == 1)
+		return _('%d bridges, 1 port').format(nb);
+
+	return _('%d bridges, %d ports').format(nb, np);
+}
+
+function renderSnapshotSummary(snap) {
+	var d = snap.device || {};
+	var problems = coverageProblems(snap);
+	var conflicts = (snap.scope.conflicts || []).length;
+	var quality = problems.length
+		? el('span', { 'class': 'label warning' },
+			_('%d data areas need attention').format(problems.length))
+		: el('span', { 'class': 'label success' }, _('Available'));
+	var parts = [
+		d.model || d.board || _('unreported'),
+		fmtTopology(snap),
+		_('%d forwarding observations').format((snap.fdb || []).length),
+		_('%d ms').format(snap.duration_ms || 0),
+		quality
+	];
+
+	if (conflicts)
+		parts.push(el('span', { 'class': 'label warning' },
+			_('%d conflicts').format(conflicts)));
+
+	var out = [];
+	parts.forEach(function(p, i) {
+		if (i)
+			out.push(' · ');
+		out.push(p);
+	});
+
+	return el('div', { 'class': 'cbi-value-description' }, out);
+}
+
+function renderQueryErrors(errors) {
+	if (!errors.length)
+		return el('div', {});
+
+	var messages = [];
+
+	if (errors.indexOf('vlan-format') >= 0 || errors.indexOf('vlan-range') >= 0)
+		messages.push(_('VLAN must be a whole number from 1 to 4094.'));
+
+	if (errors.indexOf('mac-format') >= 0)
+		messages.push(_('MAC search contains characters that are not hexadecimal or standard separators.'));
+
+	if (errors.indexOf('mac-length') >= 0)
+		messages.push(_('MAC search is longer than a 48-bit MAC address.'));
+
+	return el('div', { 'class': 'alert-message warning' }, messages.join(' '));
+}
+
 function renderHints(list) {
 	if (!list.length)
 		return el('div', {});
 
 	return el('div', {}, list.map(function(h) {
 		return el('div', {
-			'class': (h.kind == 'likely') ? 'cbi-value-description' : 'cbi-value-description',
+			'class': 'cbi-value-description',
 			'data-hint': h.id
 		}, [ (h.kind == 'likely') ? el('strong', {}, _('Likely: ')) : '', h.text ]);
 	}));
@@ -234,7 +263,7 @@ function renderHints(list) {
 function renderResults(snap, rows) {
 	var body = rows.map(function(r) {
 		return [
-			el('code', {}, r.subject.mac),
+			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac),
 			r.attrs['fdb.port'] || '?',
 			r.derived.bridge || el('em', {}, '–'),
 			fmtVlan(r.derived),
@@ -260,30 +289,47 @@ function renderResults(snap, rows) {
 }
 
 function renderPorts(snap) {
-	var body = (snap.ports || []).map(function(p) {
+	var ports = snap.ports || [];
+	var showCarrier = ports.some(function(p) {
+		return p.attrs['topo.carrier'] === true || p.attrs['topo.carrier'] === false;
+	});
+	var headings = [ _('Port'), _('Bridge') ];
+
+	if (showCarrier)
+		headings.push(_('Link'));
+
+	headings = headings.concat([ _('VLANs'), _('MACs'), _('VLANs seen') ]);
+
+	var body = ports.map(function(p) {
 		var vlans = p.attrs['topo.vlans'] || [];
 		var pvid = p.attrs['topo.vlan_pvid'];
 		var untagged = p.attrs['topo.vlan_untagged'] || [];
-
-		return [
+		var row = [
 			p.subject.port,
-			p.attrs['topo.bridge'] || el('em', {}, '–'),
-			(p.attrs['topo.carrier'] === true) ? _('up')
-				: (p.attrs['topo.carrier'] === false) ? _('down') : el('em', {}, '–'),
+			p.attrs['topo.bridge'] || el('em', {}, '–')
+		];
+
+		if (showCarrier) {
+			row.push((p.attrs['topo.carrier'] === true) ? _('up')
+				: (p.attrs['topo.carrier'] === false) ? _('down') : el('em', {}, '–'));
+		}
+
+		row.push(
 			vlans.length ? vlans.map(function(v) {
 				return String(v) + (v == pvid ? '*' : '') + (untagged.indexOf(v) >= 0 ? 'u' : 't');
 			}).join(' ') : el('em', {}, '–'),
 			String(p.derived.mac_count),
 			(p.derived.vlans_observed || []).join(' ') || el('em', {}, '–')
-		];
+		);
+
+		return row;
 	});
 
 	return el('div', {}, [
-		table([ _('Port'), _('Bridge'), _('Link'), _('VLANs'), _('Addresses'), _('VLANs seen') ],
-		      body, _('No ports reported.')),
+		table(headings, body, _('No ports reported.')),
 		el('div', { 'class': 'cbi-value-description' },
 			_('u = untagged, t = tagged, * = native VLAN. Read from the kernel, not from configuration.')),
-		el('div', {}, (snap.ports || []).map(fmtDisputed).filter(Boolean))
+		el('div', {}, ports.map(fmtDisputed).filter(Boolean))
 	]);
 }
 
@@ -291,11 +337,14 @@ function renderPorts(snap) {
  * conclusions only where they follow from it (P4). */
 function renderScope(snap) {
 	var d = snap.device || {};
+	var fdbScope = snap.scope.fdb || {};
+	var raw = (fdbScope.count != null) ? fdbScope.count : (snap.fdb || []).length;
 
-    var rows = [
+	var rows = [
 		[ _('Model'), d.model || d.board || el('em', {}, _('unreported')) ],
 		[ _('Target'), d.target || el('em', {}, _('unreported')) ],
-		[ _('Kernel'), d.kernel || el('em', {}, _('unreported')) ]
+		[ _('Kernel'), d.kernel || el('em', {}, _('unreported')) ],
+		[ _('Forwarding observations'), _('%d assembled from %d raw rows').format((snap.fdb || []).length, raw) ]
 	];
 
 	(snap.bridges || []).forEach(function(b) {
@@ -312,7 +361,7 @@ function renderScope(snap) {
 	[ 'bridges', 'ports', 'fdb', 'neighbours', 'names' ].forEach(function(c) {
 		var st = snap.scope[c] || {};
 
-		rows.push([ c, st.status + (st.reason ? ' — ' + st.reason : '') ]);
+		rows.push([ fmtCollection(c), fmtScopeStatus(st) ]);
 	});
 
 	Object.keys(snap.scope.readers || {}).forEach(function(id) {
@@ -320,30 +369,45 @@ function renderScope(snap) {
 
 		rows.push([
 			_('Reader %s').format(id),
-			r.status + (r.reason ? ' — ' + r.reason : '') +
-				(r.describe ? ' (' + r.describe + ')' : '')
+			fmtScopeStatus(r) + (r.describe ? ' (' + r.describe + ')' : '')
 		]);
 	});
 
 	return table([ _('Property'), _('Value') ], rows, _('Nothing reported.'));
 }
 
+function fmtScopeDifference(d) {
+	if (d.kind == 'format-version')
+		return _('snapshot format/version');
+
+	if (d.kind == 'collection-status')
+		return _('%s status (%s → %s)').format(fmtCollection(d.collection), fmtStatus(d.before), fmtStatus(d.after));
+
+	if (d.kind == 'collection-coverage')
+		return _('%s coverage details').format(fmtCollection(d.collection));
+
+	if (d.kind == 'reader-coverage')
+		return _('reader coverage');
+
+	return _('unknown scope difference');
+}
+
 function renderDiff() {
 	if (!S.previous)
 		return el('div', {}, el('em', {},
-			_('Press Update again to compare two snapshots.')));
+			_('Take another snapshot to compare changes.')));
 
-	var differ = scopeCompatible(S.current, S.previous);
+	var differ = compare.scopeCompatible(S.current, S.previous);
 
 	if (differ.length)
 		return el('div', { 'class': 'alert-message warning' },
-			_('These two snapshots read different things, so they cannot be compared: %s.').format(differ.join(', ')));
+			_('These two snapshots read different things, so they cannot be compared: %s.')
+				.format(differ.map(fmtScopeDifference).join(', ')));
 
-	var d = diff(S.current, S.previous);
-
+	var d = compare.diff(S.current, S.previous);
 	var rows = d.moved.map(function(m) {
 		return [
-			el('code', {}, m.mac),
+			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, m.mac),
 			_('moved'),
 			'%s → %s'.format(m.from, m.to),
 			m.weak ? el('em', {}, _('VLAN partly inferred')) : ''
@@ -351,18 +415,23 @@ function renderDiff() {
 	}).concat(d.appeared.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
-		return [ el('code', {}, r.subject.mac), _('appeared'), r.attrs['fdb.port'], '' ];
+		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('appeared'), r.attrs['fdb.port'], '' ];
 	})).concat(d.vanished.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
-		return [ el('code', {}, r.subject.mac), _('gone'), r.attrs['fdb.port'], '' ];
+		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('gone'), r.attrs['fdb.port'], '' ];
 	}));
+
+	var note = el('div', { 'class': 'cbi-value-description' },
+		_('Comparing %s with %s. "Moved" is inferred only when one remote unicast address leaves exactly one port and appears on exactly one other port.')
+			.format(S.previous.captured_at, S.current.captured_at));
+
+	if (!rows.length)
+		return el('div', {}, [ el('em', {}, _('No forwarding changes.')), note ]);
 
 	return el('div', {}, [
 		table([ _('MAC'), _('Change'), _('Port'), _('Note') ], rows, _('Nothing changed.')),
-		el('div', { 'class': 'cbi-value-description' },
-			_('Comparing %s with %s. "Moved" is inferred from an address leaving one port and appearing on another.')
-				.format(S.previous.captured_at, S.current.captured_at))
+		note
 	]);
 }
 
@@ -376,16 +445,21 @@ return view.extend({
 	render: function() {
 		var self = this;
 
-		var age = el('span', {}, _('never'));
-		var resultsBox = el('div', {}, el('em', {}, _('No snapshot yet.')));
+		var age = el('span', {}, _('not taken'));
+		var summaryBox = el('div', {}, el('em', {}, _('Take a snapshot to begin.')));
+		var resultsBox = el('div', {});
 		var portsBox = el('div', {});
 		var scopeBox = el('div', {});
 		var diffBox = el('div', {});
 		var hintsBox = el('div', {});
+		var queryNotice = el('div', {});
+		var contentBox;
+		var detailsBox;
 
 		var inPort = el('select', { 'class': 'cbi-input-select' },
 			el('option', { 'value': '' }, _('any port')));
-		var inVlan = el('input', { 'type': 'text', 'class': 'cbi-input-text',
+		var inVlan = el('input', { 'type': 'number', 'class': 'cbi-input-text',
+			'min': '1', 'max': '4094', 'step': '1',
 			'style': 'width:7em', 'placeholder': _('any') });
 		var inMac = el('input', { 'type': 'text', 'class': 'cbi-input-text',
 			'style': 'width:20em', 'placeholder': _('full or partial') });
@@ -394,9 +468,9 @@ return view.extend({
 		/* Ages the label only. There is no data poll anywhere: the snapshot
 		 * changes when the user presses Update and at no other time, and P6
 		 * requires that its age be visible while it sits there. */
-		function tick() {
+		function updateAge() {
 			if (!S.current) {
-				dom.content(age, _('never'));
+				dom.content(age, _('not taken'));
 				return;
 			}
 
@@ -408,7 +482,18 @@ return view.extend({
 			dom.content(age, [ S.current.captured_at, ' (', when, ')' ]);
 		}
 
-		window.setInterval(tick, 1000);
+		function tick() {
+			updateAge();
+
+			/* One timeout may fire after navigation; it sees the detached age
+			 * node and stops. No interval survives a discarded view. */
+			if (age.isConnected)
+				window.setTimeout(tick, 1000);
+		}
+
+		/* render() returns before the node is attached, so start one tick
+		 * later; subsequent scheduling is conditional on DOM attachment. */
+		window.setTimeout(tick, 1000);
 
 		function readQuery() {
 			S.query = {
@@ -425,20 +510,33 @@ return view.extend({
 
 			readQuery();
 
-			var rows = filterRows(S.current, S.query);
+			var filtered = query.filterRows(S.current, S.query);
+			var rows = filtered.rows;
 
+			dom.content(queryNotice, renderQueryErrors(filtered.query.errors));
 			dom.content(resultsBox, renderResults(S.current, rows));
 			dom.content(hintsBox, renderHints(hints.evaluate(S.current, {
 				rows: rows, port: S.query.port
 			})));
 		}
 
+		function resetQuery() {
+			inPort.value = '';
+			inVlan.value = '';
+			inMac.value = '';
+			inAll.checked = false;
+			redrawQuery();
+		}
+
 		function redrawAll() {
 			var snap = S.current;
 
+			dom.content(summaryBox, renderSnapshotSummary(snap));
 			dom.content(portsBox, renderPorts(snap));
 			dom.content(scopeBox, renderScope(snap));
 			dom.content(diffBox, renderDiff());
+			contentBox.style.display = '';
+			detailsBox.open = coverageProblems(snap).length > 0 || (snap.scope.conflicts || []).length > 0;
 
 			/* Forwarding entries can name interfaces that are not bridge
 			 * ports and so have no port row — a conduit interface and its
@@ -474,7 +572,7 @@ return view.extend({
 			inPort.value = keep;
 
 			redrawQuery();
-			tick();
+			updateAge();
 		}
 
 		function update(ev) {
@@ -512,26 +610,65 @@ return view.extend({
 			i.addEventListener('change', redrawQuery);
 		});
 
-		function field(label, input) {
-			return el('div', { 'class': 'cbi-value' }, [
-				el('label', { 'class': 'cbi-value-title' }, label),
-				el('div', { 'class': 'cbi-value-field' }, input)
-			]);
-		}
+		var filterTable = table(
+			[ _('Port'), _('VLAN'), _('MAC'), _('Multicast / protocol'), _('Actions') ],
+			[[
+				inPort,
+				inVlan,
+				inMac,
+				el('label', {}, [ inAll, ' ', _('show') ]),
+				el('button', { 'class': 'cbi-button', 'click': resetQuery }, _('Reset'))
+			]],
+			_('No filters available.')
+		);
+
+		detailsBox = el('details', { 'class': 'cbi-section' }, [
+			el('summary', {}, el('strong', {}, _('Device and data-source details'))),
+			el('div', { 'style': 'margin-top:1em' }, scopeBox)
+		]);
+
+		contentBox = el('div', { 'style': 'display:none' }, [
+			el('div', { 'class': 'cbi-section' }, [
+				el('h3', {}, _('Find addresses')),
+				el('div', { 'class': 'cbi-section-descr' },
+					_('Filter the current snapshot by any combination of port, VLAN or MAC address. This does not read the hardware again.')),
+				filterTable,
+				queryNotice
+			]),
+
+			el('div', { 'class': 'cbi-section' }, [
+				el('h3', {}, _('Matching addresses')),
+				resultsBox,
+				hintsBox
+			]),
+
+			el('div', { 'class': 'cbi-section' }, [
+				el('h3', {}, _('Changes since the previous snapshot')),
+				diffBox
+			]),
+
+			el('div', { 'class': 'cbi-section' }, [
+				el('h3', {}, _('Ports and VLANs')),
+				portsBox
+			]),
+
+			detailsBox
+		]);
 
 		return el('div', {}, [
 			el('h2', {}, _('MAC & VLAN Lookup')),
 			el('div', { 'class': 'cbi-map-descr' },
-				_('Reads this device\'s forwarding database once, then answers questions from that snapshot. Nothing is stored and nothing is polled.')),
+				_('Take one read-only snapshot of this device\'s live Layer 2 state, then search and compare it without polling the hardware. Nothing is stored.')),
 
 			el('div', { 'class': 'cbi-section' }, [
+				el('h3', {}, _('Snapshot')),
 				el('div', { 'class': 'cbi-value' }, [
-					el('label', { 'class': 'cbi-value-title' }, _('Snapshot')),
+					el('label', { 'class': 'cbi-value-title' }, _('Actions')),
 					el('div', { 'class': 'cbi-value-field' }, [
 						el('button', {
 							'class': 'cbi-button cbi-button-action important',
 							'click': ui.createHandlerFn(self, update)
-						}, _('Update')),
+						}, _('Update snapshot')),
 						' ',
 						el('button', {
 							'class': 'cbi-button',
@@ -541,40 +678,17 @@ return view.extend({
 								else
 									ui.addNotification(null, el('p', {}, _('Take a snapshot first.')));
 							}
-						}, _('Download JSON')),
-						' ', age
+						}, _('Download JSON'))
 					])
-				])
+				]),
+				el('div', { 'class': 'cbi-value' }, [
+					el('label', { 'class': 'cbi-value-title' }, _('Last snapshot')),
+					el('div', { 'class': 'cbi-value-field' }, age)
+				]),
+				summaryBox
 			]),
 
-			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Query')),
-				field(_('Port'), inPort),
-				field(_('VLAN'), inVlan),
-				field(_('MAC'), inMac),
-				field(_('Include multicast and protocol addresses'), inAll)
-			]),
-
-			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Addresses')),
-				resultsBox,
-				hintsBox
-			]),
-
-			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Ports and VLANs')),
-				portsBox
-			]),
-
-			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('Changes since the previous snapshot')),
-				diffBox
-			]),
-
-			el('div', { 'class': 'cbi-section' }, [
-				el('h3', {}, _('This device, and what it could see')),
-				scopeBox
-			])
+			contentBox
 		]);
 	},
 
