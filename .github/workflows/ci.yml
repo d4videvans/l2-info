@@ -126,6 +126,27 @@ jobs:
 
               ./scripts/feeds install -f l2-info luci-app-l2-info
               make defconfig
-              make package/l2-info/compile V=s -j"$(nproc)"
-              make package/feeds/luci/luci-app-l2-info/compile V=s -j"$(nproc)"
+
+              build_target() {
+                name="$1"
+                target="$2"
+                log="/tmp/${name}.log"
+
+                set +e
+                make "$target" V=s -j"$(nproc)" 2>&1 | tee "$log"
+                status="${PIPESTATUS[0]}"
+                set -e
+
+                if [ "$status" -ne 0 ]; then
+                  echo "::group::${name} SDK failure tail"
+                  tail -n 200 "$log"
+                  echo "::endgroup::"
+                  first_error="$(grep -m1 -E "(ERROR:|error:|make(\\[[0-9]+\\])?: \\*\\*\\*)" "$log" | tr "\\r\\n" "  " || true)"
+                  echo "::error title=${name} SDK build failed::${first_error:-See failure tail above}"
+                  exit "$status"
+                fi
+              }
+
+              build_target l2-info package/l2-info/compile
+              build_target luci-app-l2-info package/feeds/luci/luci-app-l2-info/compile
             '
