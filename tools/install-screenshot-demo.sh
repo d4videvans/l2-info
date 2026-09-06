@@ -18,12 +18,21 @@ fail() {
 command -v ubus >/dev/null 2>&1 || fail "ubus not found"
 
 MAIN=/www/luci-static/resources/view/l2-info/main.js
+DEMO=/www/luci-static/resources/view/l2-info/demo.js
 [ -f "$MAIN" ] || fail "l2-info LuCI view not installed; run: sh $ROOT/tools/install-test.sh"
 [ -f "$ROOT/tools/demo-backend.uc" ] || fail "missing tools/demo-backend.uc"
 [ -f "$ROOT/tools/demo-snapshot.uc" ] || fail "missing tools/demo-snapshot.uc"
 
 count=$(grep -c "object: 'l2-info'" "$MAIN" || true)
 [ "$count" -eq 1 ] || fail "expected exactly one l2-info rpc object declaration in $MAIN; found $count"
+count=$(grep -F -c "_('MAC & VLAN Lookup')" "$MAIN" || true)
+[ "$count" -eq 1 ] || fail "expected exactly one production page title in $MAIN; found $count"
+count=$(grep -F -c "Take one read-only snapshot" "$MAIN" || true)
+[ "$count" -eq 1 ] || fail "expected exactly one production introduction in $MAIN; found $count"
+count=$(grep -F -c "Read from the kernel, not from configuration." "$MAIN" || true)
+[ "$count" -eq 1 ] || fail "expected exactly one production VLAN legend in $MAIN; found $count"
+count=$(grep -F -c "This does not read the hardware again." "$MAIN" || true)
+[ "$count" -eq 1 ] || fail "expected exactly one production filter description in $MAIN; found $count"
 
 mkdir -p \
 	/usr/share/l2-info \
@@ -38,10 +47,22 @@ chmod 0644 /usr/share/rpcd/ucode/l2-info-demo /usr/share/l2-info/demo-snapshot.u
 
 # Keep the production view untouched. The demo gets its own copied view which
 # calls a separate synthetic ubus object but reuses the already-installed helper
-# modules and rendering code.
-sed "s/object: 'l2-info'/object: 'l2-info-demo'/" "$MAIN" \
-	> /www/luci-static/resources/view/l2-info/demo.js
-chmod 0644 /www/luci-static/resources/view/l2-info/demo.js
+# modules and rendering code. Demo-specific wording makes it obvious that this
+# page is not displaying or reading the live device.
+sed \
+	-e "s|object: 'l2-info'|object: 'l2-info-demo'|" \
+	-e "s|_('MAC & VLAN Lookup')|_('MAC \& VLAN Lookup (synthetic demo)')|" \
+	-e "s|Take one read-only snapshot.*Nothing is stored.|Synthetic demo data — no live network identifiers are shown. This page renders repository-supplied example Layer 2 data and does not read your device.|" \
+	-e "s|Filter the current snapshot by any combination of port, VLAN or MAC address. This does not read the hardware again.|Filter the current synthetic snapshot by any combination of port, VLAN or MAC address. No device hardware is read.|" \
+	-e "s|u = untagged, t = tagged, \* = native VLAN. Read from the kernel, not from configuration.|u = untagged, t = tagged, * = native VLAN. These values are synthetic demo data, not readings from this device.|" \
+	"$MAIN" > "$DEMO"
+chmod 0644 "$DEMO"
+
+grep -Fq "object: 'l2-info-demo'" "$DEMO" || fail "demo rpc object rewrite failed"
+grep -Fq "MAC & VLAN Lookup (synthetic demo)" "$DEMO" || fail "demo title rewrite failed"
+grep -Fq "Synthetic demo data — no live network identifiers are shown." "$DEMO" || fail "demo introduction rewrite failed"
+grep -Fq "No device hardware is read." "$DEMO" || fail "demo filter wording rewrite failed"
+grep -Fq "These values are synthetic demo data, not readings from this device." "$DEMO" || fail "demo VLAN legend rewrite failed"
 
 cat > /usr/share/luci/menu.d/luci-app-l2-info-demo.json <<'JSON'
 {

@@ -39,7 +39,7 @@ return {
 		ports: { status: 'ok', count: 4 },
 		fdb: { status: 'ok', count: 6 },
 		neighbours: { status: 'ok', count: 6 },
-		names: { status: 'ok', count: 6 }
+		names: { status: 'ok', count: 5 }
 	},
 	bridges: [
 		{
@@ -75,7 +75,7 @@ return {
 		{
 			subject: { port: 'lan3' },
 			attrs: {
-				'topo.port': 'lan3', 'topo.bridge': 'br-lan', 'topo.carrier': false,
+				'topo.port': 'lan3', 'topo.bridge': 'br-lan', 'topo.carrier': true,
 				'topo.vlans': [ 30 ], 'topo.vlan_flags': [ 'PVID Egress Untagged' ],
 				'topo.vlan_pvid': 30, 'topo.vlan_untagged': [ 30 ]
 			},
@@ -113,7 +113,7 @@ return {
 		{
 			subject: { mac: '02:00:00:00:30:01' },
 			attrs: { 'fdb.port': 'lan3', 'fdb.vlan': 30, 'fdb.bridge': 'br-lan' },
-			derived: { bridge: 'br-lan', mac_class: 'unicast', vlan: 30, vlan_source: 'fdb', on_bridge_device: false, local: false, ips: [ '192.0.2.31' ], hostname: 'demo-camera' },
+			derived: { bridge: 'br-lan', mac_class: 'unicast', vlan: 30, vlan_source: 'fdb', on_bridge_device: false, local: false, ips: [ '192.0.2.31' ] },
 			source: 'demo'
 		},
 		{
@@ -141,7 +141,6 @@ return {
 		{ subject: { mac: '02:00:00:00:10:01' }, attrs: { 'name.hostname': 'demo-laptop' }, source: 'demo' },
 		{ subject: { mac: '02:00:00:00:10:02' }, attrs: { 'name.hostname': 'demo-tablet' }, source: 'demo' },
 		{ subject: { mac: '02:00:00:00:20:01' }, attrs: { 'name.hostname': 'demo-printer' }, source: 'demo' },
-		{ subject: { mac: '02:00:00:00:30:01' }, attrs: { 'name.hostname': 'demo-camera' }, source: 'demo' },
 		{ subject: { mac: '02:00:00:00:40:01' }, attrs: { 'name.hostname': 'demo-phone' }, source: 'demo' },
 		{ subject: { mac: '02:00:00:00:40:02' }, attrs: { 'name.hostname': 'demo-pc' }, source: 'demo' }
 	]
