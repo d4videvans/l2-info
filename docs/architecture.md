@@ -215,8 +215,9 @@ unicast 1->1 case. Otherwise the UI shows primitive appeared/vanished evidence.
 
 The potentially expensive operation is the AF_BRIDGE FDB dump on drivers that
 walk switch hardware per port. Realtek DSA validation showed roughly
-1.2–1.3-second complete snapshots on a 24-port rtl839x device; other validated
-router targets were substantially faster.
+1.2–1.3-second complete snapshots on a Zyxel GS1920-24 rtl839x device. OpenWrt
+exposed 28 DSA interfaces on that 24-port model, including its four additional
+combo/SFP interfaces; other validated router targets were substantially faster.
 
 The design accepts that cost because:
 

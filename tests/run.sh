@@ -146,12 +146,12 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "checks" ]; then
 		| wc -l)
 	check "D15: fixtures contain no non-synthetic MAC" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
 
-	# D17: translation literals must not carry boundary whitespace. LuCI's
+	# i18n: translation literals must not carry boundary whitespace. LuCI's
 	# scanner trims it, so runtime lookup would otherwise miss the POT key.
 	I18N_BOUNDARY_RE="_\\(['\"]([[:space:]][^'\"]*|[^'\"]*[[:space:]])['\"]\\)"
 	hits=$(grep -rnE "$I18N_BOUNDARY_RE" \
 		"$VIEW/htdocs/luci-static/resources" --include='*.js' 2>/dev/null | wc -l)
-	check "D17: translation literals have no boundary whitespace" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
+	check "i18n: translation literals have no boundary whitespace" "$([ "$hits" -eq 0 ] && echo 0 || echo 1)"
 
 	# Mutation-probe the guard itself: both leading and trailing boundary
 	# whitespace, including multi-word strings, must be detectable.
@@ -161,7 +161,7 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "checks" ]; then
 		"_('two words ')" \
 		"_(' leading words')" \
 		| grep -Ec "$I18N_BOUNDARY_RE")
-	check "D17: boundary-whitespace guard catches leading and trailing mutations" "$([ "$probe" -eq 4 ] && echo 0 || echo 1)"
+	check "i18n: boundary-whitespace guard catches leading and trailing mutations" "$([ "$probe" -eq 4 ] && echo 0 || echo 1)"
 
 	# Demo rewrites share one authoritative precondition checker with install.
 	if sh "$ROOT/tools/check-screenshot-demo.sh" \

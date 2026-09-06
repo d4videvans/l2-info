@@ -97,7 +97,7 @@ platforms:
 | Platform | Validation role |
 |---|---|
 | x86/64 software bridges | no bridge, empty bridge, populated bridge and VLAN-filtered bridge behaviour |
-| Zyxel GS1920-24 v1 (`rtl839x`) | 28-port Realtek DSA switch and expensive hardware FDB walk |
+| Zyxel GS1920-24 v1 (`rtl839x`) | 24-port model with four additional combo/SFP interfaces (28 DSA interfaces exposed) and expensive hardware FDB walk |
 | Zyxel GS1900-8HP B1 (`rtl838x`) | second Realtek generation and a different DSA link representation |
 | Cudy WR3000P v1 (`mediatek/filogic`) | mixed DSA, WAN and Wi-Fi bridge membership |
 | Linksys SPNMX56 (`qualcommax/ipq50xx`) | Qualcomm DSA and all-zero FDB placeholder behaviour |

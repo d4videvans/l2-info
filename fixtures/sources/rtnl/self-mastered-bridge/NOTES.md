@@ -8,8 +8,9 @@ Two things this device does that no synthetic fixture had:
    the bridge — which is called `switch`, not `br-something` — appears with
    `master: "switch"`. The original bridge detection excluded a bridge from the
    ports collection only when it had *no* master, so the bridge was emitted as a
-   port of itself and its own `port_count` counted it: 29 ports on a 28-port
-   switch.
+   port of itself and its own `port_count` counted it: 29 ports on a device that
+   should expose 28 DSA interfaces (the GS1920-24's 24-port model plus four
+   additional combo/SFP interfaces).
 
 2. **An unresolved neighbour.** The kernel reported `0.0.0.0` with an all-zero
    hardware address, which the reader turned into a mapping and so invented a

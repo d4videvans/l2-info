@@ -3,6 +3,12 @@
 This is the repository-side checklist for the first public **pre-upstream test
 release** of `l2-info`. It is deliberately not forum-post copy.
 
+**RC1 status:** published. This file is retained as a reusable process checklist;
+unchecked boxes are procedure prompts, not a live claim that RC1 is unfinished.
+The published `v0.1.0-rc1` tag is treated as the immutable source identity for
+that release. Documentation-only corrections may land on `main` afterwards
+without moving the tag.
+
 The aim of this phase is to find portability, installation, performance and
 usability problems on hardware we do not own before preparing the separate
 OpenWrt packages and LuCI submissions.

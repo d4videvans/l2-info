@@ -2,8 +2,9 @@
 
 **Status:** the correctness/portability remediation, planned hardware sweep,
 package hygiene and reproducible CI work are complete for the current design.
-R5 remains deliberately deferred because the hardware sweep did not produce the
-partial-attribute evidence that would justify expanding the schema.
+The existing R5 partial-read case is implemented; broader machine-readable
+per-attribute failure vocabulary remains deliberately deferred because the
+hardware sweep did not produce evidence that would justify expanding the schema.
 
 The project is now in a **pre-upstream external testing phase**: make it easy to
 install/remove, invite OpenWrt community testing on hardware we do not own,
@@ -35,10 +36,12 @@ the former over-claim while preserving the conforming-reader contract.
 ### R2 — Unambiguous movement inference (P0) — done
 
 A MAC may legitimately have several simultaneous FDB observations. `moved` is
-therefore inferred only when exactly one qualifying remote-unicast observation
-vanished and exactly one appeared. Ambiguous 1->N/N->1/N->N cases remain
-primitive appeared/vanished evidence. VLAN-only changes on one port are not
-port moves.
+therefore inferred only when the complete qualifying remote-unicast
+port-presence set changes from exactly one port to exactly one different port.
+Raw dual reports on the same port do not affect that decision. Ambiguous
+1->N/N->1/N->N port-presence cases remain primitive appeared/vanished evidence.
+VLAN-only changes on one port are not port moves and remain visible as primitive
+evidence.
 
 The comparison logic is pure/tested outside the browser.
 
@@ -221,7 +224,7 @@ The planned diversity sweep is complete for the current portability questions.
 | Device | State | Primary evidence |
 |---|---|---|
 | x86/64 OpenWrt 25.12.5 / 6.12.94 | complete for current software-bridge questions | no-bridge, empty/populated/VLAN-filtered bridge; exposed/corrected no-bridge, provenance and null-empty assumptions |
-| Zyxel GS1920-24 v1 | rtl839x complete for current questions | generic bridge identity/address; 28 ports; locality; roughly 1.2–1.3 s hardware walk |
+| Zyxel GS1920-24 v1 | rtl839x complete for current questions | generic bridge identity/address; 24-port model with four additional combo/SFP interfaces (28 DSA interfaces exposed); locality; roughly 1.2–1.3 s hardware walk |
 | Zyxel GS1900-8HP B1 | rtl838x complete | one bridge/eight ports; distinct per-port addresses; nested DSA slave metadata; management VLAN child excluded; 141 raw FDB rows matched cross-check |
 | Cudy WR3000P v1 | Filogic/router complete | one bridge/eight mixed wired/Wi-Fi ports; AF_BRIDGE membership where generic kind is absent; duplicate flag-only observations merged; ~233 ms |
 | Linksys SPNMX56 | qualcommax/ipq50xx complete | one bridge/nine ports; all-zero qca8k FDB placeholders discovered/fixed; exact non-zero cross-check; ~915 ms |
