@@ -11,6 +11,7 @@ this device, from a snapshot taken on request.
 LUCI_DEPENDS:=+luci-base +l2-info
 
 PKG_LICENSE:=Apache-2.0
+PKG_MAINTAINER:=David Evans <d@videvans.com>
 
 include ../../luci.mk
 
