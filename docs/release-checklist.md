@@ -146,3 +146,5 @@ The project is ready to move from public testing to upstream preparation when:
 
 At that point prepare the `l2-info` contribution for `openwrt/packages` and the
 `luci-app-l2-info` contribution for `openwrt/luci` as separate upstream changes.
+
+- [ ] Run the documented device-side ubus/uhttpd size-ceiling procedure before upstream submission (may remain open for forum RC if normal validated hardware is clearly below the limit).

@@ -1,0 +1,45 @@
+{
+  "board": {
+    "board_name": "synthetic,bridge-partial",
+    "model": "Synthetic bridge partial fixture",
+    "kernel": "6.12.0",
+    "release": {
+      "target": "synthetic/test"
+    }
+  },
+  "scope": {
+    "bridges": {
+      "status": "ok",
+      "note": "rtnl: VLAN filtering state unreadable for: br-lan"
+    }
+  },
+  "entities": [
+    {
+      "collection": "bridges",
+      "subject": {
+        "bridge": "br-lan"
+      },
+      "attrs": {
+        "br.address": "02:00:00:00:00:10"
+      },
+      "attrs_absent": [
+        "br.vlan_filtering"
+      ]
+    },
+    {
+      "collection": "fdb",
+      "subject": {
+        "mac": "02:00:00:00:00:10"
+      },
+      "derived": {
+        "local": true,
+        "on_bridge_device": true
+      }
+    }
+  ],
+  "hints": {
+    "silent": [
+      "no_vlan_filtering"
+    ]
+  }
+}

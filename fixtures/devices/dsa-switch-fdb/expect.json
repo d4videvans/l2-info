@@ -83,7 +83,7 @@
         "port": "switch"
       },
       "derived": {
-        "mac_count": 3,
+        "mac_count": 0,
         "vlans_observed": []
       },
       "attrs_absent": [

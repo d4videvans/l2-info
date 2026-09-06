@@ -184,3 +184,8 @@ project beyond Layer 2 observation should normally wait.
 Once the test phase no longer exposes material contract or portability issues,
 the next milestone is to prepare separate upstream submissions for the backend
 and LuCI package trees.
+
+
+## External-review remediation
+
+Before RC freeze, per-port host aggregates were corrected to exclude local/non-unicast observations; bridge identity is retained when only VLAN-filtering state is unreadable; neighbour-family partial failures are declared; browser diff raw identity now matches the backend while move detection operates at port-presence granularity; filter-relative counts and i18n/hint consistency were corrected; backend package version is `0.1.0`; and synchronous rpcd/transport constraints are documented. LuCI continues to use normal `luci.mk` revision-derived package versioning; tester reports should include the source RC tag and commit SHA.

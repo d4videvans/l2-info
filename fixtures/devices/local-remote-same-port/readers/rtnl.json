@@ -1,0 +1,65 @@
+{
+  "provides": [
+    "bridges",
+    "ports",
+    "fdb",
+    "neighbours",
+    "names"
+  ],
+  "collections": {
+    "bridges": {
+      "status": "ok"
+    },
+    "ports": {
+      "status": "ok"
+    },
+    "fdb": {
+      "status": "ok"
+    },
+    "neighbours": {
+      "status": "ok"
+    },
+    "names": {
+      "status": "ok"
+    }
+  },
+  "rows": [
+    {
+      "subject": {
+        "bridge": "br-lan"
+      },
+      "attrs": {
+        "br.name": "br-lan",
+        "br.address": "02:00:00:00:00:01",
+        "br.vlan_filtering": true
+      }
+    },
+    {
+      "subject": {
+        "port": "lan1"
+      },
+      "attrs": {
+        "topo.port": "lan1",
+        "topo.bridge": "br-lan",
+        "topo.address": "02:00:00:00:00:01",
+        "topo.vlan_pvid": 10
+      }
+    },
+    {
+      "subject": {
+        "mac": "02:00:00:00:00:01"
+      },
+      "attrs": {
+        "fdb.port": "lan1"
+      }
+    },
+    {
+      "subject": {
+        "mac": "aa:00:00:00:00:02"
+      },
+      "attrs": {
+        "fdb.port": "lan1"
+      }
+    }
+  ]
+}

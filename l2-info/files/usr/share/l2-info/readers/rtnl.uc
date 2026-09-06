@@ -98,7 +98,7 @@ function read_links(nl) {
 		if (!name || l.linkinfo?.type != 'bridge')
 			continue;
 
-		bridges[name] = 0;
+		bridges[name] = true;
 
 		let address = macfmt(l.address);
 
@@ -179,7 +179,6 @@ function read_links(nl) {
 				error: `AF_BRIDGE link '${p.name}' names master '${p.master}', which the generic link dump did not identify as a bridge`
 			};
 
-		bridges[p.master]++;
 	}
 
 	return { ports, bridges, bridge_addresses };
@@ -304,10 +303,11 @@ function neigh_rows(nl) {
 	let byMac = {}, errors = [];
 
 	for (let family in [ nl.const.AF_INET, nl.const.AF_INET6 ]) {
+		let label = (family == nl.const.AF_INET) ? 'IPv4' : 'IPv6';
 		let d = dump(nl, nl.const.RTM_GETNEIGH, { family });
 
 		if (d.error) {
-			push(errors, d.error);
+			push(errors, `${label}: ${d.error}`);
 			continue;
 		}
 
@@ -335,12 +335,21 @@ function neigh_rows(nl) {
 	}
 
 	if (length(errors) == 2)
-		return { error: errors[0] };
+		return { error: join('; ', errors) };
 
 	let rows = [];
 
 	for (let mac, ips in byMac)
 		push(rows, { subject: { mac }, attrs: { 'neigh.ips': ips } });
+
+	if (length(errors) > 0) {
+		let detail = `partial neighbour coverage; ${join('; ', errors)}`;
+
+		if (length(rows) == 0)
+			return { rows, indeterminate: detail };
+
+		return { rows, note: detail };
+	}
 
 	return { rows };
 }
@@ -437,16 +446,13 @@ return {
 		else {
 			let br = bridge_rows(ctx.fs, links);
 
-			if (length(br.unknown) > 0)
-				collections.bridges = {
-					status: 'indeterminate',
-					reason: `VLAN filtering state unreadable for: ${join(', ', br.unknown)}`
-				};
-			else
-				collections.bridges = { status: 'ok' };
+			collections.bridges = { status: 'ok' };
 
-			if (collections.bridges.status == 'ok')
-				rows = [ ...rows, ...br.rows ];
+			if (length(br.unknown) > 0)
+				collections.bridges.note =
+					`VLAN filtering state unreadable for: ${join(', ', br.unknown)}`;
+
+			rows = [ ...rows, ...br.rows ];
 
 			collections.ports = { status: 'ok' };
 			rows = [ ...rows, ...port_rows(links) ];
@@ -472,8 +478,14 @@ return {
 
 		if (neigh.error)
 			collections.neighbours = { status: 'unavailable', reason: neigh.error };
+		else if (neigh.indeterminate)
+			collections.neighbours = { status: 'indeterminate', reason: neigh.indeterminate };
 		else {
 			collections.neighbours = { status: 'ok' };
+
+			if (neigh.note)
+				collections.neighbours.note = neigh.note;
+
 			rows = [ ...rows, ...neigh.rows ];
 		}
 

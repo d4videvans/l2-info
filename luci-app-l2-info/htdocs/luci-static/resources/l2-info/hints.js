@@ -22,6 +22,15 @@
 'use strict';
 'require baseclass';
 
+function collectionLabel(name) {
+	var labels = {
+		bridges: _('Bridges'), ports: _('Ports'),
+		fdb: _('Forwarding database'), neighbours: _('Neighbours'), names: _('Names')
+	};
+
+	return labels[name] || name;
+}
+
 return baseclass.extend({
 	/* Each rule: id, kind, and a function returning null or a hint.
 	 * `view` carries what the page is currently showing, so a hint cannot
@@ -58,7 +67,7 @@ return baseclass.extend({
 				if (!unclaimed.length)
 					return null;
 
-				return _('Nothing installed on this device can read: %s. Installing a reader package adds that capability.').format(unclaimed.join(', '));
+				return _('Nothing installed on this device can read: %s. Installing a reader package adds that capability.').format(unclaimed.map(collectionLabel).join(', '));
 			}
 		},
 		{
@@ -170,12 +179,14 @@ return baseclass.extend({
 					if (r.derived.local)
 						return;
 
-					var k = r.subject.mac + '/' + r.attrs['fdb.port'];
+					var effective = (r.derived.vlan == null) ? 'none' : String(r.derived.vlan);
+					var reported = (r.attrs['fdb.vlan'] === undefined) ? 'none' : String(r.attrs['fdb.vlan']);
+					var k = r.subject.mac + '/' + r.attrs['fdb.port'] + '/' + effective;
 
-					if (seen[k])
+					if (seen[k] !== undefined && seen[k] != reported)
 						dup++;
-					else
-						seen[k] = true;
+					else if (seen[k] === undefined)
+						seen[k] = reported;
 				});
 
 				if (!dup)

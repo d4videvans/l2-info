@@ -269,3 +269,10 @@ l2-info/
 The monorepo is a development/review convenience. The intended upstream result
 is two independent package contributions: backend to `openwrt/packages` and
 view to `openwrt/luci`.
+
+
+## Synchronous snapshot cost and transport ceiling
+
+The snapshot request executes synchronously inside rpcd. `duration_ms` is therefore also the approximate rpcd event-loop blocking time for that request; measured rtl839x hardware FDB walks have taken about 1.2–1.3 seconds. The explicit/manual snapshot model and no-polling rule are intentional safeguards against multiplying that cost.
+
+ubus/blobmsg has a finite message-size ceiling. The project does not invent truncation semantics before measuring a practical limit. Pre-upstream measurement is device-side: grow a bounded synthetic snapshot and verify both `ubus call l2-info snapshot` and the LuCI request through uhttpd/ubus, recording the largest successful payload and target/software versions.

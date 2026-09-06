@@ -1,0 +1,40 @@
+{
+  "link_generic": {
+    "rows": [
+      {
+        "ifname": "br-lan",
+        "linkinfo": {
+          "type": "bridge"
+        },
+        "address": "02:00:00:00:00:10"
+      }
+    ]
+  },
+  "link_bridge": {
+    "rows": [
+      {
+        "ifname": "lan1",
+        "master": "br-lan",
+        "carrier": true,
+        "address": "02:00:00:00:00:11"
+      }
+    ]
+  },
+  "neigh_bridge": {
+    "rows": [
+      {
+        "lladdr": "aa:00:00:00:00:11",
+        "dev": "lan1"
+      }
+    ]
+  },
+  "neigh_inet": {
+    "rows": []
+  },
+  "neigh_inet6": {
+    "rows": []
+  },
+  "files": {
+    "/etc/ethers": ""
+  }
+}

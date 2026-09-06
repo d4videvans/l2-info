@@ -256,11 +256,12 @@ function renderHints(list) {
 		return el('div', {
 			'class': 'cbi-value-description',
 			'data-hint': h.id
-		}, [ (h.kind == 'likely') ? el('strong', {}, _('Likely: ')) : '', h.text ]);
+		}, [ (h.kind == 'likely') ? el('strong', {}, _('Likely:') + ' ') : '', h.text ]);
 	}));
 }
 
-function renderResults(snap, rows) {
+function renderResults(snap, result) {
+	var rows = result.rows;
 	var body = rows.map(function(r) {
 		return [
 			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac),
@@ -272,14 +273,10 @@ function renderResults(snap, rows) {
 		];
 	});
 
-	var hidden = (snap.fdb || []).length - (snap.fdb || []).filter(function(r) {
-		return r.derived.mac_class == 'unicast';
-	}).length;
+	var note = [ _('%d of %d forwarding entries shown.').format(rows.length, result.populationCount) ];
 
-	var note = [ _('%d of %d forwarding entries shown.').format(rows.length, (snap.fdb || []).length) ];
-
-	if (hidden && !S.query.nonUnicast)
-		note.push(_('%d multicast or protocol addresses are hidden.').format(hidden));
+	if (result.hiddenNonUnicast)
+		note.push(_('%d multicast or protocol addresses are hidden.').format(result.hiddenNonUnicast));
 
 	return el('div', {}, [
 		table([ _('MAC'), _('Port'), _('Bridge'), _('VLAN'), _('Flags'), _('Host / IP') ],
@@ -298,7 +295,7 @@ function renderPorts(snap) {
 	if (showCarrier)
 		headings.push(_('Link'));
 
-	headings = headings.concat([ _('VLANs'), _('MACs'), _('VLANs seen') ]);
+	headings = headings.concat([ _('VLANs'), _('Remote MACs'), _('Remote VLANs seen') ]);
 
 	var body = ports.map(function(p) {
 		var vlans = p.attrs['topo.vlans'] || [];
@@ -341,6 +338,7 @@ function renderScope(snap) {
 	var raw = (fdbScope.count != null) ? fdbScope.count : (snap.fdb || []).length;
 
 	var rows = [
+		[ _('Device metadata'), (d.status == 'unavailable') ? _('unavailable — %s').format(d.reason || '') : _('available') ],
 		[ _('Model'), d.model || d.board || el('em', {}, _('unreported')) ],
 		[ _('Target'), d.target || el('em', {}, _('unreported')) ],
 		[ _('Kernel'), d.kernel || el('em', {}, _('unreported')) ],
@@ -412,11 +410,11 @@ function renderDiff() {
 			'%s → %s'.format(m.from, m.to),
 			m.weak ? el('em', {}, _('VLAN partly inferred')) : ''
 		];
-	}).concat(d.appeared.filter(function(r) {
+	}).concat(d.presenceAppeared.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
 		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('appeared'), r.attrs['fdb.port'], '' ];
-	})).concat(d.vanished.filter(function(r) {
+	})).concat(d.presenceVanished.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
 		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('gone'), r.attrs['fdb.port'], '' ];
@@ -514,7 +512,7 @@ return view.extend({
 			var rows = filtered.rows;
 
 			dom.content(queryNotice, renderQueryErrors(filtered.query.errors));
-			dom.content(resultsBox, renderResults(S.current, rows));
+			dom.content(resultsBox, renderResults(S.current, filtered));
 			dom.content(hintsBox, renderHints(hints.evaluate(S.current, {
 				rows: rows, port: S.query.port
 			})));

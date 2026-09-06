@@ -28,12 +28,20 @@ function assert(name, cond, detail) {
 }
 
 function row(mac, port, vlan, opts = {}) {
+	const attrs = { 'fdb.port': port };
+	const source = opts.vlan_source || 'fdb';
+
+	if (opts.reported !== undefined)
+		attrs['fdb.vlan'] = opts.reported;
+	else if (source === 'fdb' && vlan != null)
+		attrs['fdb.vlan'] = vlan;
+
 	return {
 		subject: { mac },
-		attrs: { 'fdb.port': port },
+		attrs,
 		derived: {
 			vlan,
-			vlan_source: opts.vlan_source || 'fdb',
+			vlan_source: source,
 			mac_class: opts.mac_class || 'unicast',
 			local: !!opts.local
 		}
@@ -134,5 +142,28 @@ b = snap([], {
 	bridge: { status: 'unavailable', api: 1, provides: [ 'bridges' ], reason: 'failed' }
 });
 assert('bridge reader coverage change blocks diff', mod.scopeCompatible(a, b).some((x) => x.kind === 'reader-coverage'));
+
+// Raw reported-VLAN identity must not collapse an untagged/PVID observation.
+let dualBefore = snap([
+	row(MAC, 'lan1', 5, { reported: 5 }),
+	row(MAC, 'lan1', 5, { vlan_source: 'pvid' })
+]);
+let dualAfter = snap([
+	row(MAC, 'lan2', 5, { reported: 5 }),
+	row(MAC, 'lan2', 5, { vlan_source: 'pvid' })
+]);
+d = mod.diff(dualAfter, dualBefore);
+assert('dual-report raw observations remain distinct', d.appeared.length === 2 && d.vanished.length === 2);
+assert('dual-report one-port move preserved', d.moved.length === 1 && d.moved[0].from === 'lan1' && d.moved[0].to === 'lan2');
+assert('dual-report presence rows are deduplicated', d.presenceAppeared.length === 1 && d.presenceVanished.length === 1);
+
+// Losing one raw observation must not manufacture a port move while another
+// observation still establishes presence on the old port.
+d = mod.diff(snap([
+	row(MAC, 'lan1', 5, { reported: 5 }),
+	row(MAC, 'lan2', 5, { reported: 5 })
+]), dualBefore);
+assert('partial raw disappearance is not a move', d.moved.length === 0);
+assert('old-port presence is not reported gone', d.presenceVanished.length === 0);
 
 process.exit(failures ? 1 : 0);

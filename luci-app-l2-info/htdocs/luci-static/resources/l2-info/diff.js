@@ -18,7 +18,8 @@
 var DIFF_COLLECTIONS = [ 'bridges', 'ports', 'fdb' ];
 
 function observationKey(r) {
-	return [ r.subject.mac, r.attrs['fdb.port'], r.derived.vlan ].join('/');
+	var reported = (r.attrs['fdb.vlan'] === undefined) ? null : r.attrs['fdb.vlan'];
+	return [ r.subject.mac, r.attrs['fdb.port'], JSON.stringify(reported) ].join('/');
 }
 
 function collectionFingerprint(snap, name) {
@@ -77,8 +78,44 @@ function scopeCompatible(a, b) {
 	return differ;
 }
 
+function eligible(r) {
+	var d = r.derived || {};
+	return !d.local && d.mac_class == 'unicast' && !!r.attrs['fdb.port'];
+}
+
+function portPresence(rows) {
+	var byMac = {};
+
+	(rows || []).forEach(function(r) {
+		if (!eligible(r))
+			return;
+
+		var mac = r.subject.mac, port = r.attrs['fdb.port'];
+		byMac[mac] ||= {};
+		byMac[mac][port] ||= [];
+		byMac[mac][port].push(r);
+	});
+
+	return byMac;
+}
+
+function vlanFor(rows) {
+	var values = [];
+
+	(rows || []).forEach(function(r) {
+		var v = r.derived?.vlan;
+		if (v != null && values.indexOf(v) < 0)
+			values.push(v);
+	});
+
+	return values.length == 1 ? values[0] : null;
+}
+
 function diff(cur, prev) {
-	var a = {}, b = {}, out = { appeared: [], vanished: [], moved: [] };
+	var a = {}, b = {}, out = {
+		appeared: [], vanished: [], moved: [],
+		presenceAppeared: [], presenceVanished: []
+	};
 
 	(cur.fdb || []).forEach(function(r) { a[observationKey(r)] = r; });
 	(prev.fdb || []).forEach(function(r) { b[observationKey(r)] = r; });
@@ -93,49 +130,38 @@ function diff(cur, prev) {
 			out.vanished.push(b[k]);
 	});
 
-	var appearedByMac = {}, vanishedByMac = {};
+	var now = portPresence(cur.fdb), before = portPresence(prev.fdb);
+	var macs = {};
+	Object.keys(now).forEach(function(m) { macs[m] = true; });
+	Object.keys(before).forEach(function(m) { macs[m] = true; });
 
-	out.appeared.forEach(function(r) {
-		var d = r.derived || {};
+	Object.keys(macs).forEach(function(mac) {
+		var np = Object.keys(now[mac] || {});
+		var bp = Object.keys(before[mac] || {});
 
-		if (d.local || d.mac_class != 'unicast')
+		np.forEach(function(port) {
+			if (!(before[mac] || {})[port])
+				out.presenceAppeared.push(now[mac][port][0]);
+		});
+
+		bp.forEach(function(port) {
+			if (!(now[mac] || {})[port])
+				out.presenceVanished.push(before[mac][port][0]);
+		});
+
+		if (np.length != 1 || bp.length != 1 || np[0] == bp[0])
 			return;
 
-		(appearedByMac[r.subject.mac] ||= []).push(r);
-	});
-
-	out.vanished.forEach(function(r) {
-		var d = r.derived || {};
-
-		if (d.local || d.mac_class != 'unicast')
-			return;
-
-		(vanishedByMac[r.subject.mac] ||= []).push(r);
-	});
-
-	Object.keys(appearedByMac).forEach(function(mac) {
-		var now = appearedByMac[mac] || [];
-		var before = vanishedByMac[mac] || [];
-
-		/* Any 1:N, N:1 or N:N case has more than one possible pairing. Show
-		 * the primitive evidence instead of manufacturing a plausible move. */
-		if (now.length != 1 || before.length != 1)
-			return;
-
-		var r = now[0], p = before[0];
-
-		/* A VLAN-only change is real but it is not a port move. Leaving its
-		 * appear/vanish evidence visible is less misleading than "lan2 → lan2". */
-		if (r.attrs['fdb.port'] == p.attrs['fdb.port'])
-			return;
-
+		var nrows = now[mac][np[0]], brows = before[mac][bp[0]];
 		out.moved.push({
 			mac: mac,
-			from: p.attrs['fdb.port'],
-			to: r.attrs['fdb.port'],
-			fromVlan: p.derived.vlan,
-			toVlan: r.derived.vlan,
-			weak: (p.derived.vlan_source == 'pvid' || r.derived.vlan_source == 'pvid')
+			from: bp[0],
+			to: np[0],
+			fromVlan: vlanFor(brows),
+			toVlan: vlanFor(nrows),
+			weak: brows.concat(nrows).some(function(r) {
+				return r.derived?.vlan_source == 'pvid';
+			})
 		});
 	});
 

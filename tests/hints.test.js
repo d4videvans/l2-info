@@ -33,7 +33,6 @@ function loadHints() {
 		.replace(/^\s*'require [^']*';\s*$/gm, '');
 
 	const baseclass = { extend: (o) => o };
-	const _ = (s) => Object.assign(String(s), {});
 
 	String.prototype.format = function () {
 		const args = arguments;
@@ -127,6 +126,52 @@ for (const name of fs.readdirSync(FIXTURES).sort()) {
 		failures++;
 	} else {
 		console.log(`  ok   hints/${name} (${fired.length} fired)`);
+	}
+}
+
+/* B4: two genuine VLAN observations on the same MAC/port are distinct normal
+ * entries, not duplicate reports. Only differing raw identities that resolve
+ * to the same effective VLAN are the duplicate-report shape. */
+{
+	const row = (vlan) => ({
+		subject: { mac: 'aa:00:00:00:00:44' },
+		attrs: { 'fdb.port': 'lan1', 'fdb.vlan': vlan },
+		derived: { vlan, vlan_source: 'fdb', mac_class: 'unicast', local: false }
+	});
+	const snap = {
+		bridges: [], ports: [], fdb: [ row(10), row(20) ],
+		scope: {
+			bridges: { status: 'ok' }, ports: { status: 'ok' }, fdb: { status: 'ok' },
+			neighbours: { status: 'ok' }, names: { status: 'ok' }, conflicts: []
+		}
+	};
+	const fired = hints.evaluate(snap, { rows: snap.fdb, port: 'lan1' }).map((h) => h.id);
+	checks++;
+	if (fired.includes('duplicate_reports')) {
+		console.log('  FAIL hints/vlan-aware-duplicates: duplicate_reports fired across true VLANs');
+		failures++;
+	} else {
+		console.log('  ok   hints/vlan-aware-duplicates');
+	}
+}
+
+/* B3: collection identifiers are internal vocabulary; the hint presents the
+ * same translated display labels used by the scope UI. */
+{
+	const snap = {
+		bridges: [], ports: [], fdb: [],
+		scope: {
+			bridges: { status: 'not_applicable' }, ports: { status: 'ok' }, fdb: { status: 'ok' },
+			neighbours: { status: 'ok' }, names: { status: 'ok' }, conflicts: []
+		}
+	};
+	const hint = hints.evaluate(snap, { rows: [] }).find((h) => h.id === 'no_reader');
+	checks++;
+	if (!hint || !hint.text.includes('Bridges')) {
+		console.log('  FAIL hints/no-reader-label: translated display label missing');
+		failures++;
+	} else {
+		console.log('  ok   hints/no-reader-label');
 	}
 }
 

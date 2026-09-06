@@ -562,7 +562,7 @@ function derive(entities) {
 
 		e.derived = d;
 
-		if (port != null && !d.on_bridge_device) {
+		if (port != null && !d.on_bridge_device && !d.local && d.mac_class == 'unicast') {
 			fdb_by_port[port] ??= { macs: {}, vlans: {} };
 			fdb_by_port[port].macs[mac] = true;
 
@@ -656,9 +656,17 @@ function assemble(ctx, disco) {
 }
 
 function device_info(ctx) {
-	let b = ctx.ubus.call('system', 'board', {}) ?? {};
+	let b = ctx.ubus.call('system', 'board', {});
+
+	if (b == null)
+		return {
+			status: 'unavailable',
+			reason: 'system board ubus call failed',
+			board: null, model: null, target: null, kernel: null
+		};
 
 	return {
+		status: 'ok',
 		board: b.board_name ?? null,
 		model: b.model ?? null,
 		target: b.release?.target ?? null,

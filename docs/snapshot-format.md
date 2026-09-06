@@ -94,8 +94,7 @@ A backend snapshot has this shape:
 `captured_at` is UTC ISO-8601. `duration_ms` covers the one user-triggered
 snapshot acquisition. `cost` is aggregated from installed surviving readers and
 is currently `software` or `hardware-walk`; it is a declared cost class, not a
-measurement. `device` comes from `ubus call system board` and is descriptive
-metadata rather than reader output.
+measurement. `device` comes from `ubus call system board` and is descriptive metadata rather than reader output. It carries `status: "ok"` for a successful call (individual metadata fields may still be null when unreported), or `status: "unavailable"` plus `reason` when the board call itself failed.
 
 ## Scope
 
@@ -238,8 +237,7 @@ Bridge identity/address come from generic RTM_GETLINK. Bridge membership and
 VLAN membership come from the AF_BRIDGE link view. An empty bridge can therefore
 still be represented with `port_count: 0`.
 
-`br.vlan_filtering` is read from the bridge's own state; it is not inferred from
-whether VLAN ids happened to appear elsewhere.
+`br.vlan_filtering` is read from the bridge's own state; it is not inferred from whether VLAN ids happened to appear elsewhere. If bridge identity/address were read successfully but this individual attribute is unreadable, the bridge row remains present, the attribute is omitted, and `scope.bridges` remains `ok` with an attributed explanatory `note`. Version 1 does not provide machine-readable per-attribute failure reasons; consumers must treat an omitted optional attribute as unknown, never as false.
 
 ## Port rows
 
@@ -270,8 +268,7 @@ Example:
 text vocabulary shown by `bridge vlan show`: `PVID`, `Egress Untagged`, both, or
 an empty string.
 
-`mac_count` and `vlans_observed` describe this snapshot's assembled forwarding
-observations on the port; they are counts/sets, not port-role classifications.
+`mac_count` is the count of distinct **remote unicast** MAC addresses observed on the port. `vlans_observed` is the set of resolved VLANs represented by those same remote-unicast observations. Local device addresses and multicast/protocol observations remain present in the FDB but do not contribute to these host-oriented aggregates; the values remain counts/sets, not port-role classifications.
 
 ## FDB rows
 
@@ -348,8 +345,8 @@ published constant, or the single permitted VLAN inference:
 | Row | Field | Basis |
 |---|---|---|
 | bridge | `port_count` | count of reported member ports |
-| port | `mac_count` | count of assembled FDB MACs observed on the port |
-| port | `vlans_observed` | set of resolved VLANs represented by those observations |
+| port | `mac_count` | count of distinct remote-unicast assembled FDB MACs observed on the port |
+| port | `vlans_observed` | set of resolved VLANs represented by those remote-unicast observations |
 | FDB | `mac_class` | address classification (`unicast`, `multicast`, `protocol`) against address constants/prefixes |
 | FDB | `local` | exact join to a reported device port/bridge link address |
 | FDB | `vlan` | reported `fdb.vlan`, otherwise the reporting port PVID when available |

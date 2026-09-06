@@ -1,0 +1,12 @@
+{
+  "reader": "rtnl",
+  "collections": {
+    "neighbours": {
+      "status": "indeterminate",
+      "reason": "partial neighbour coverage; IPv6: synthetic IPv6 neighbour dump failure"
+    }
+  },
+  "row_counts": {
+    "neighbours": 0
+  }
+}
