@@ -29,7 +29,7 @@ function assert(name, cond, detail) {
 
 function row(mac, port, vlan, opts = {}) {
 	const attrs = { 'fdb.port': port };
-	const source = opts.vlan_source || 'fdb';
+	const source = (opts.vlan_source !== undefined) ? opts.vlan_source : 'fdb';
 
 	if (opts.reported !== undefined)
 		attrs['fdb.vlan'] = opts.reported;
@@ -63,13 +63,22 @@ function snap(rows, readers = {
 	};
 }
 
+function same(a, b) {
+	return JSON.stringify(a) === JSON.stringify(b);
+}
+
 const MAC = '02:00:00:00:00:01';
 
 let d = mod.diff(snap([ row(MAC, 'lan2', 10) ]), snap([ row(MAC, 'lan1', 10) ]));
-assert('one-to-one move', d.moved.length === 1 && d.moved[0].from === 'lan1' && d.moved[0].to === 'lan2');
+assert('one-to-one move',
+	d.moved.length === 1 && d.moved[0].from === 'lan1' && d.moved[0].to === 'lan2' &&
+	same(d.moved[0].fromVlans, [ 10 ]) && same(d.moved[0].toVlans, [ 10 ]));
+assert('simple move accounts for its primitive rows',
+	d.visibleAppeared.length === 0 && d.visibleVanished.length === 0);
 
 d = mod.diff(snap([ row(MAC, 'lan2', 10), row(MAC, 'lan3', 10) ]), snap([ row(MAC, 'lan1', 10) ]));
 assert('one-to-many stays primitive', d.moved.length === 0 && d.appeared.length === 2 && d.vanished.length === 1);
+assert('one-to-many primitive evidence remains visible', d.visibleAppeared.length === 2 && d.visibleVanished.length === 1);
 
 d = mod.diff(snap([ row(MAC, 'lan3', 10) ]), snap([ row(MAC, 'lan1', 10), row(MAC, 'lan2', 10) ]));
 assert('many-to-one stays primitive', d.moved.length === 0 && d.appeared.length === 1 && d.vanished.length === 2);
@@ -81,7 +90,8 @@ d = mod.diff(snap([ row(MAC, 'lan2', 20) ]), snap([ row(MAC, 'lan2', 10) ]));
 assert('vlan-only change is not a move', d.moved.length === 0 && d.appeared.length === 1 && d.vanished.length === 1);
 assert('vlan-only change remains visible primitive evidence',
 	d.primitiveAppeared.length === 1 && d.primitiveAppeared[0].derived.vlan === 20 &&
-	d.primitiveVanished.length === 1 && d.primitiveVanished[0].derived.vlan === 10);
+	d.primitiveVanished.length === 1 && d.primitiveVanished[0].derived.vlan === 10 &&
+	d.visibleAppeared.length === 1 && d.visibleVanished.length === 1);
 
 d = mod.diff(snap([ row(MAC, 'lan2', 10, { local: true }) ]), snap([ row(MAC, 'lan1', 10, { local: true }) ]));
 assert('local address is not moved', d.moved.length === 0);
@@ -94,6 +104,35 @@ assert('protocol address is not moved', d.moved.length === 0);
 
 d = mod.diff(snap([ row(MAC, 'lan2', 10, { vlan_source: 'pvid' }) ]), snap([ row(MAC, 'lan1', 10) ]));
 assert('pvid move is marked weak', d.moved.length === 1 && d.moved[0].weak === true);
+
+// Port movement can be definite while each port has several effective VLAN
+// placements. The move must retain the whole VLAN set rather than collapsing
+// "many" into the same null value used for unresolved VLAN evidence.
+d = mod.diff(
+	snap([ row(MAC, 'lan2', 5) ]),
+	snap([ row(MAC, 'lan1', 5), row(MAC, 'lan1', 10) ])
+);
+assert('multi-vlan move retains complete vlan sets',
+	d.moved.length === 1 && same(d.moved[0].fromVlans, [ 5, 10 ]) && same(d.moved[0].toVlans, [ 5 ]));
+assert('multi-vlan move accounts for represented primitive evidence',
+	d.visibleAppeared.length === 0 && d.visibleVanished.length === 0);
+
+// Unresolved effective VLAN is retained as null inside the set, including when
+// it exists alongside a resolved VLAN. It must never be confused with several
+// resolved VLAN values.
+d = mod.diff(
+	snap([ row(MAC, 'lan2', 5) ]),
+	snap([ row(MAC, 'lan1', 5), row(MAC, 'lan1', null, { vlan_source: null }) ])
+);
+assert('mixed resolved and unresolved move evidence is retained',
+	d.moved.length === 1 && same(d.moved[0].fromVlans, [ 5, null ]) && same(d.moved[0].toVlans, [ 5 ]));
+
+d = mod.diff(
+	snap([ row(MAC, 'lan2', null, { vlan_source: null }) ]),
+	snap([ row(MAC, 'lan1', null, { vlan_source: null }) ])
+);
+assert('unresolved-only move remains distinct from multi-vlan evidence',
+	d.moved.length === 1 && same(d.moved[0].fromVlans, [ null ]) && same(d.moved[0].toVlans, [ null ]));
 
 let a = snap([]), b = snap([]);
 assert('same scope compatible', mod.scopeCompatible(a, b).length === 0);
@@ -157,9 +196,11 @@ let dualAfter = snap([
 ]);
 d = mod.diff(dualAfter, dualBefore);
 assert('dual-report raw observations remain distinct', d.appeared.length === 2 && d.vanished.length === 2);
-assert('dual-report one-port move preserved', d.moved.length === 1 && d.moved[0].from === 'lan1' && d.moved[0].to === 'lan2');
-assert('dual-report presence rows are deduplicated', d.presenceAppeared.length === 1 && d.presenceVanished.length === 1);
+assert('dual-report one-port move preserved',
+	d.moved.length === 1 && d.moved[0].from === 'lan1' && d.moved[0].to === 'lan2' &&
+	same(d.moved[0].fromVlans, [ 5 ]) && same(d.moved[0].toVlans, [ 5 ]));
 assert('dual-report primitive rows are deduplicated', d.primitiveAppeared.length === 1 && d.primitiveVanished.length === 1);
+assert('dual-report move accounts for visible primitive rows', d.visibleAppeared.length === 0 && d.visibleVanished.length === 0);
 
 // Losing one raw observation must not manufacture a port move while another
 // observation still establishes the same visible placement on the old port.
@@ -168,10 +209,9 @@ d = mod.diff(snap([
 	row(MAC, 'lan2', 5, { reported: 5 })
 ]), dualBefore);
 assert('partial raw disappearance is not a move', d.moved.length === 0);
-assert('old-port presence is not reported gone', d.presenceVanished.length === 0);
-assert('old effective placement is not visibly gone', d.primitiveVanished.length === 0);
+assert('old effective placement is not visibly gone', d.primitiveVanished.length === 0 && d.visibleVanished.length === 0);
 assert('new effective placement remains visibly appeared',
-	d.primitiveAppeared.length === 1 && d.primitiveAppeared[0].attrs['fdb.port'] === 'lan2');
+	d.primitiveAppeared.length === 1 && d.primitiveAppeared[0].attrs['fdb.port'] === 'lan2' && d.visibleAppeared.length === 1);
 
 // A raw identity change alone (explicit VLAN versus PVID-derived same VLAN)
 // is retained in raw evidence but must not become a user-visible forwarding
@@ -182,6 +222,7 @@ d = mod.diff(
 );
 assert('raw-only identity churn remains raw', d.appeared.length === 1 && d.vanished.length === 1);
 assert('raw-only identity churn is not a visible primitive change',
-	d.primitiveAppeared.length === 0 && d.primitiveVanished.length === 0);
+	d.primitiveAppeared.length === 0 && d.primitiveVanished.length === 0 &&
+	d.visibleAppeared.length === 0 && d.visibleVanished.length === 0);
 
 process.exit(failures ? 1 : 0);
