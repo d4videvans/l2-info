@@ -2,9 +2,9 @@
 /* l2-info snapshot comparison.
  *
  * Comparison is deliberately pure and lives outside the view so ambiguity is
- * testable. A change is evidence first; "moved" is emitted only for the one
- * case where one prior port presence and one current port presence differ for
- * an ordinary remote unicast address (D12).
+ * testable. Three identities are kept separate (D12): raw observation identity
+ * follows the reported FDB VLAN, primitive visible placement uses the effective
+ * VLAN, and movement inference uses complete remote-unicast port presence.
  */
 
 'use strict';
@@ -29,7 +29,7 @@ function observationKey(r) {
  * raw identity: two kernel observations which resolve to the same MAC, port
  * and effective VLAN describe one visible forwarding placement. This preserves
  * VLAN-only changes while preventing raw-detail churn from reading as a host
- * disappearance (D12). */
+ * disappearance. It is presentation collapse, not raw observation merging. */
 function primitiveKey(r) {
 	var vlan = r.derived?.vlan;
 	return [
@@ -128,16 +128,43 @@ function portPresence(rows) {
 	return byMac;
 }
 
-function vlanFor(rows) {
-	var values = [];
+/* A move must not turn "several VLANs" into the same value as "no resolved
+ * VLAN". Retain the complete distinct effective-VLAN set for the one old/new
+ * port. null is retained as an explicit unresolved member and sorted last. */
+function vlanSet(rows) {
+	var values = [], unresolved = false;
 
 	(rows || []).forEach(function(r) {
 		var v = r.derived?.vlan;
-		if (v != null && values.indexOf(v) < 0)
+		if (v == null)
+			unresolved = true;
+		else if (values.indexOf(v) < 0)
 			values.push(v);
 	});
 
-	return values.length == 1 ? values[0] : null;
+	values.sort(function(a, b) { return a - b; });
+	if (unresolved)
+		values.push(null);
+
+	return values;
+}
+
+function vlanSetContains(values, vlan) {
+	return (values || []).some(function(v) {
+		return (v == null && vlan == null) || v === vlan;
+	});
+}
+
+/* Primitive placement evidence represented completely by a moved row need not
+ * be repeated. Suppression is exact to the move's MAC, side, port and effective
+ * VLAN; it is never a MAC-wide presentation filter. */
+function moveAccountsFor(r, m, after) {
+	var port = r.attrs['fdb.port'];
+	var vlan = r.derived?.vlan;
+	var expectedPort = after ? m.to : m.from;
+	var vlans = after ? m.toVlans : m.fromVlans;
+
+	return r.subject.mac == m.mac && port == expectedPort && vlanSetContains(vlans, vlan);
 }
 
 function diff(cur, prev) {
@@ -148,7 +175,7 @@ function diff(cur, prev) {
 	var out = {
 		appeared: [], vanished: [], moved: [],
 		primitiveAppeared: [], primitiveVanished: [],
-		presenceAppeared: [], presenceVanished: []
+		visibleAppeared: [], visibleVanished: []
 	};
 
 	Object.keys(a).forEach(function(k) {
@@ -180,16 +207,6 @@ function diff(cur, prev) {
 		var np = Object.keys(now[mac] || {});
 		var bp = Object.keys(before[mac] || {});
 
-		np.forEach(function(port) {
-			if (!(before[mac] || {})[port])
-				out.presenceAppeared.push(now[mac][port][0]);
-		});
-
-		bp.forEach(function(port) {
-			if (!(now[mac] || {})[port])
-				out.presenceVanished.push(before[mac][port][0]);
-		});
-
 		if (np.length != 1 || bp.length != 1 || np[0] == bp[0])
 			return;
 
@@ -198,12 +215,19 @@ function diff(cur, prev) {
 			mac: mac,
 			from: bp[0],
 			to: np[0],
-			fromVlan: vlanFor(brows),
-			toVlan: vlanFor(nrows),
+			fromVlans: vlanSet(brows),
+			toVlans: vlanSet(nrows),
 			weak: brows.concat(nrows).some(function(r) {
 				return r.derived?.vlan_source == 'pvid';
 			})
 		});
+	});
+
+	out.visibleAppeared = out.primitiveAppeared.filter(function(r) {
+		return !out.moved.some(function(m) { return moveAccountsFor(r, m, true); });
+	});
+	out.visibleVanished = out.primitiveVanished.filter(function(r) {
+		return !out.moved.some(function(m) { return moveAccountsFor(r, m, false); });
 	});
 
 	return out;
