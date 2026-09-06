@@ -118,7 +118,15 @@ jobs:
             bash -lc '
               set -eux
               [ -d scripts ] || ./setup.sh
-              ./scripts/feeds update packages luci
+              ./scripts/feeds update base packages luci
+              ./scripts/feeds install -p base \
+                lua \
+                ucode \
+                rpcd \
+                libubox \
+                ubus \
+                libnl-tiny \
+                iwinfo
 
               rm -rf package/l2-info
               cp -a /workspace/l2-info package/l2-info
