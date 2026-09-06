@@ -81,10 +81,26 @@ No local/session storage for snapshots. Download is the explicit keep-it path.
 
 ## D12 — FDB diff identity and scope compatibility — settled; refined by R2/R3
 
-Raw comparison identity is MAC + port + VLAN observation identity. Before a
-strong diff, `bridges`, `ports` and `fdb` status/reader coverage must be
-compatible. `moved` is emitted only for the unambiguous qualifying 1->1 case;
-otherwise primitive appeared/vanished evidence remains.
+Diffing deliberately uses three different identities because they answer three
+different questions:
+
+1. **Raw observation identity** is MAC + port + reported `fdb.vlan`. This matches
+   the backend observation contract; a PVID-derived VLAN never merges or
+   rewrites raw observations.
+2. **Primitive visible placement identity** is MAC + port + effective
+   `derived.vlan`. This presentation-only collapse can fold two raw reports that
+   resolve to the same visible placement while still preserving VLAN-only
+   changes. It does not alter D13's raw-observation rule.
+3. **Port-presence identity** is MAC + port for qualifying remote-unicast rows.
+   `moved` is emitted only when the complete before set contains exactly one port
+   and the complete after set contains exactly one different port.
+
+Before a strong diff, `bridges`, `ports` and `fdb` status/reader coverage must be
+compatible. A moved row retains the complete distinct effective-VLAN set for the
+old and new port, including an unresolved/null member where present, so
+multi-VLAN evidence is never collapsed into "no VLAN". Primitive
+appeared/vanished placements represented completely by that moved row may be
+suppressed; any primitive evidence not represented by it remains visible.
 
 ## D13 — One permitted inference: PVID fallback — settled
 
