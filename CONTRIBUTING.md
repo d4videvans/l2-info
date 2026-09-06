@@ -1,87 +1,124 @@
 # Contributing
 
-Read `docs/principles.md` first, then `docs/decisions.md`. The rules there are
-enforced mechanically where that is possible, and a change that conflicts with
-a settled decision needs that decision superseded in the register — in the same
-change — rather than worked around in code.
+For simply trying the project on an OpenWrt device, start with
+[`docs/getting-started.md`](docs/getting-started.md). This document is for code,
+documentation and hardware-evidence contributions.
 
-`CONVENTIONS.md` has the working detail: which document owns which fact, how to
-add a field, a reader, a device class or a hint, and the list of mechanical
-checks with the principle each one enforces.
+Read `docs/principles.md` and the current `docs/decisions.md` before changing
+behaviour. `CONVENTIONS.md` maps the design rules to working practices and
+mechanical checks. The original long-form decision history remains in
+`docs/decisions-history.md`.
 
 ## Before opening a pull request
+
+Run:
 
 ```sh
 sh tests/run.sh
 ```
 
-Everything must pass, including the mechanical checks. With a locally built
-ucode rather than a device's:
+Everything available locally must pass. With a locally built ucode:
 
 ```sh
 UCODE=~/ucode/build/ucode UCODE_LIB=~/ucode/build sh tests/run.sh
 ```
 
-Node is optional for the development runner and executes the hint, export,
-query/filter and diff/scope unit tests. When it is absent the runner reports
-those tests unrun rather than passed. CI must provide Node, so these tests are
-not optional in automated validation.
+Node is optional in the local/device runner. When absent, browser-side
+hint/export/query/diff tests are explicitly reported as skipped rather than
+passed. CI always supplies Node and makes those tests mandatory.
 
-Using `sh tests/run.sh` is deliberate even if the executable bit is present in
-a git checkout: it also works after zip/archive round-trips which may not
-preserve that bit.
+Using `sh tests/run.sh` is intentional: copied/archive checkouts do not need to
+preserve executable bits.
 
-## Testing the LuCI view from a copied checkout
+Repository CI additionally validates fixture JSON, runs current LuCI
+ESLint/i18n/POT checks and builds both intended packages in the official OpenWrt
+SDK. Green CI is integration evidence; it is not a substitute for testing an
+unseen physical driver.
 
-The target device does not need git for UI work either. Copy a current checkout
-to the device, then install the backend and view directly from that directory:
+## Testing a checkout on OpenWrt
+
+The friendly tester path installs backend and (when LuCI is present) the view:
 
 ```sh
-cd /tmp/l2-info                  # or wherever the checkout was copied
+cd /tmp/l2-info
+sh tools/install-test.sh
+```
+
+Remove it with:
+
+```sh
+sh tools/uninstall-test.sh
+```
+
+For focused development the lower-level helpers remain available:
+
+```sh
 sh tools/install-dev-backend.sh
 sh tools/install-dev-luci.sh
 ```
 
-`install-dev-luci.sh` copies the view, its helper modules, menu entry and
-read-only ACL, then invalidates LuCI's menu/module caches and reloads rpcd. It is
-a development helper rather than a package-manager replacement. Refresh LuCI
-and open **Status -> MAC & VLAN Lookup** after it completes.
+The scripts are copied-checkout helpers, not package-manager replacements. The
+backend helper verifies runtime ucode modules before copying anything and
+reloads rpcd in the safe core-before-reader order.
 
-## Two things that will get a change sent back
+## Two common mistakes
 
-**A fixture that supplies a value without asserting it.** That looks like
-coverage and is not — see D43, where a note sat in a fixture input for a whole
-release without being checked.
+### Supplying fixture data without asserting it
 
-**A new field in the snapshot without a decision record.** The vocabulary is
-closed on purpose (D24): sources are extensible, field names are not.
+If a fixture deliberately contains a value, its expectation should normally
+assert the consequential contract. Otherwise the input only looks like
+coverage. D43 was found this way when a reader note existed in fixture input but
+was not asserted.
+
+### Adding vocabulary locally
+
+Sources are extensible; the snapshot vocabulary is not. A new collection,
+subject kind, attribute or non-existing derived value is a format/design change
+first (`docs/snapshot-format.md` + decision), then code.
 
 ## Contributing hardware coverage
 
-The most useful thing anyone can send is a device this project has never run
-on. Coverage cannot grow past the maintainers' own hardware otherwise.
+Hardware outside the existing validation matrix is especially useful.
 
-The target device does **not** need git. Hardware validation is designed for a
-copied checkout: download/extract the desired branch elsewhere, copy the whole
-directory to the device (WinSCP, scp, removable media, or any equivalent), then
-run:
+The target does not need git. Copy a checkout to the device, install it, then
+collect one read-only evidence bundle:
 
 ```sh
-cd /tmp/l2-info                  # or wherever the checkout was copied
-sh tools/install-dev-backend.sh
+cd /tmp/l2-info
+sh tools/install-test.sh
 sh tools/collect-validation.sh
 ```
 
-The collector writes a timestamped `/tmp/l2-info-validation-*` directory which
-can be copied back off the device. It records board metadata, one production
-snapshot, a safe rtnetlink bridge/link probe, optional `bridge -j` cross-checks
-when available, and `tests/run.sh` output. It needs no Node or jq. If
-`sha256sum` is present it records hashes of the copied and installed backend
-files, which provides exact source provenance even though there is no `.git`
-directory on the target.
+The collector records board metadata, runtime-module checks, one production
+snapshot, a safe rtnetlink link probe, optional `bridge -j` cross-checks, hashes
+and the repository test output.
 
-A capture contains real MAC addresses, host names and IP addresses. Read the
-redaction section of `docs/fixtures.md` before sending or committing anything,
-and note that `.gitignore` deliberately excludes exported snapshots so an
-unredacted one cannot be committed by accident. Raw validation bundles are for
-private analysis; fixtures committed to the repository must satisfy D15.
+**Its output is raw.** It may contain real MAC addresses, IP addresses and
+hostnames. Do not post the bundle publicly or commit it as a fixture. Read
+`docs/fixtures.md` and `docs/getting-started.md` first; begin a public report
+with device/target/kernel, exact revision/tag, snapshot duration and the
+collection/reader status summary.
+
+D21's proposed redacted capture helper does not exist yet.
+
+## Adding a reader
+
+Follow `docs/readers.md` exactly. In particular:
+
+- readers are trusted installed package code, not sandboxed plugins;
+- `read(ctx)` uses the supplied source primitives so fixture replay stays total;
+- rows emit only registered `subject` + `attrs`;
+- assembler owns `derived` and `source`;
+- manifest `provides`, status return and package dependencies must agree;
+- at least one source fixture is mandatory.
+
+A new reader should not require a reader-id branch in the core.
+
+## Documentation changes
+
+`CONVENTIONS.md` owns the documentation map. If implementation changes a settled
+fact, update the owning document in the same change rather than adding a second
+contradictory description elsewhere.
+
+User-facing installation/behaviour belongs in `docs/getting-started.md`; deep
+rationale belongs in the decision/history documents.

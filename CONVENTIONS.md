@@ -1,143 +1,120 @@
 # Conventions
 
 For contributors, human and otherwise. `docs/principles.md` says what the rules
-are; this says how to work within them and which checks enforce them.
+are; this document says where facts live and how changes are checked.
 
-## Before changing anything
+## Before changing behaviour
 
-Read `docs/principles.md`, then the decision register. A change that conflicts
-with a settled decision needs that decision superseded in
-`docs/decisions.md` — in the same change — not worked around in code.
+Read `docs/principles.md` and `docs/decisions.md`. A change conflicting with a
+settled decision needs an explicit new/superseding decision in the same change,
+not a hidden exception in code.
+
+Detailed historical rationale through D49 is preserved in
+`docs/decisions-history.md`.
 
 ## Documentation ownership
 
-One fact has one home:
+One fact has one current home:
 
 | Fact | Home |
 |---|---|
-| A rule, and how it is enforced | `docs/principles.md` |
-| A component, boundary, kernel interface, or cost | `docs/architecture.md` |
-| A field, status value, or version rule | `docs/snapshot-format.md` |
-| The reader contract, manifest, discovery, or merging | `docs/readers.md` |
-| A device class, fixture layout, or redaction rule | `docs/fixtures.md` |
-| Why a choice was made, and what it cost | `docs/decisions.md` |
+| user/test installation, update, uninstall, troubleshooting, privacy | `docs/getting-started.md` |
+| normative design rule/enforcement boundary | `docs/principles.md` |
+| component, data flow, kernel/source interface or cost model | `docs/architecture.md` |
+| snapshot field/status/version contract | `docs/snapshot-format.md` |
+| reader manifest/discovery/read/merge contract | `docs/readers.md` |
+| fixture layout, live-evidence boundary and redaction | `docs/fixtures.md` |
+| current architectural/project decisions | `docs/decisions.md` |
+| original detailed decision evidence/history | `docs/decisions-history.md` |
+| remediation/readiness/hardware matrix | `docs/remediation.md` |
+| contribution workflow | `CONTRIBUTING.md` |
 
-Repetition elsewhere is navigation and must not contradict the owner. If two
-documents disagree, the owner wins and the other is the bug.
+README is the front door and navigation/summary, not an independent contract.
+Where a repeated statement disagrees with its owner, the repeated statement is
+the bug.
 
-## Adding a field to the snapshot
+## Adding/changing snapshot vocabulary
 
-1. If it is a value the kernel reported, it goes in `attrs` under the C2
-   vocabulary and needs no decision record.
-2. If it is a join, a count, or a classification against a published constant,
-   it goes in `derived`, gets added to the closed list in
-   `docs/snapshot-format.md`, and the decision record states which of the three
-   it is.
-3. If it is none of those, it is a classification and P2 forbids it. If it
-   seems necessary anyway, the argument belongs in a decision record and has to
-   overturn D7.
+1. **Using an existing registered reported attribute** needs no new vocabulary
+   decision; emit it in `attrs` only when the source actually reports it.
+2. **Adding a new attribute/collection/subject kind** changes the closed
+   contract: decision + `docs/snapshot-format.md` first, then implementation and
+   fixtures.
+3. **Adding a derived value** requires it to fit the permitted categories in
+   the snapshot contract (join, count, published-constant classification, or an
+   explicitly approved inference) and requires a decision update.
+4. A new inference carries explicit provenance and visible UI distinction.
 
-An inference additionally needs a provenance sibling and a visible marker in
-the view (D13's pattern).
+Do not smuggle classification into a field because it is convenient to render.
 
 ## Adding a reader
 
-Readers are trusted package code loaded into rpcd. `read(ctx)` is the
-conformance and testability seam, not a sandbox or privilege boundary (D34).
-Review a reader on the same trust basis as any other code installed on the
-device.
+Readers are trusted package code loaded in rpcd. `read(ctx)` is the conformance
+and testability seam, not a security boundary.
 
-1. One file returning a manifest, at `/usr/share/l2-info/readers/<id>.uc`, with
-   `id` equal to the filename stem. Contract: `docs/readers.md`. A conforming
-   `read(ctx)` uses only the source primitives it is handed — it imports no
-   source module — which is what keeps fixture replay total (D34). Arbitrary
-   installed ucode can ignore this rule; that is why it is a contract rather
-   than a security claim.
-2. Emit `subject` and `attrs` only. No `derived`, no `source` — the assembler
-   owns both, and a reader that derives is the start of a second
-   implementation of the same inference.
-3. Registered attribute names only. Needing a new one is a decision record and
-   a `docs/snapshot-format.md` entry *first*.
-4. Declare `provides`, `cost` and `api`. Return a status for every collection
-   claimed, and rows only for collections declared `ok`.
-5. A source fixture under `fixtures/sources/<id>/`. A reader without one is
-   unmergeable.
-6. Its package declares every runtime prerequisite as a dependency, so the
-   reader cannot be installed without what it needs.
+- file: `/usr/share/l2-info/readers/<id>.uc`;
+- manifest id equals filename stem;
+- use supplied `ctx` source primitives;
+- emit registered `subject`/`attrs` only;
+- declare `provides`, `cost`, `api` and return status for every claimed
+  collection;
+- package every runtime prerequisite as a dependency;
+- add source fixtures and relevant device interaction fixtures.
 
-No registration step, no config entry, no core change. If a core change is
-needed to make a reader work, that is a bug in the seam.
+No registration/config/core special case should be required.
 
-## Adding a device class
+## Adding a device fixture
 
-A directory under `fixtures/devices/` with `NOTES.md`, one `readers/<id>.json`
-per reader present, and an `expect.json` asserting scope, conflicts, hints
-fired, hints silent, and rows — in that order of importance. Its input is
-normalised reader output, so it is source-independent and needs no per-source
-stub. No harness change; if one is needed, that is a bug in the harness
-(D14, D26).
+Create `fixtures/devices/<class>/` with `NOTES.md`, normalised reader result
+files and `expect.json`. Assert declaration/conflict/hint behaviour as well as
+interesting rows/derived values. The runner discovers the directory.
+
+Live hardware evidence and fixture data are different: never copy a raw
+validation bundle directly into `fixtures/` without applying D15 review/redaction.
 
 ## Adding a hint
 
-In the view only, in `resources/l2-info/hints.js`. Must satisfy H1–H4: not a
-field, only displayed values, pure function, and — if its kind is `likely` —
-at least two plausible causes. Use kind `note` for anything that explains the
-screen rather than asserting a cause (D39). Add its identifier to the relevant
-fixtures' `hints.fire` **and** to `hints.silent` in at least one class where it
-must not appear. A hint tested only for firing is half tested.
+Hints live in `luci-app-l2-info/htdocs/luci-static/resources/l2-info/hints.js`.
+They satisfy P5 H1-H4, use kind `likely` only for causal interpretation and
+`note` for explanation, and have both positive and negative test coverage.
 
-## Mechanical checks
+## Mechanical/CI checks
 
-These run in `tests/run.sh` and are the enforcement referred to throughout
-`docs/principles.md`. Each exists because prose alone does not hold.
+`sh tests/run.sh` enforces the repository-level invariants it can check,
+including:
 
-| Check | Enforces |
-|---|---|
-| Every snapshot collection has a sibling status from the closed vocabulary; every non-`ok` status has a reason | P1 |
-| Banned tokens `uplink`, `access`, `beyond`, `at_or_beyond`, `direct` absent as values, field names or enum members | P2, D7 |
-| Export of a fixture snapshot contains no `derived` key and no hint text | P3, P5 |
-| Render path does not read `attrs` directly | P3 |
-| No boolean capability field computed from an empty single dump; `dsa-no-fdb-dump` asserts `indeterminate` | P4 |
-| No use of LuCI's `poll` module; `captured_at` present in every snapshot | P6 |
-| ACL contains no `write` section; no `localStorage`/`sessionStorage`; no file under `/etc/config` | P7 |
-| Fixture directories discovered, not listed | P8, D14 |
-| No identifier in `fixtures/` outside the synthetic space or permitted name patterns | D15 |
-| Every user-facing string wrapped in `_()`; no untranslated markup text | D17 |
-| Every `likely` hint names more than one cause | P5, D39 |
-| Recorded fixture readers validate against their own manifests | P9 |
-| No reader emits `derived` or `source`; assembler stamps `source` from the manifest | P3, D32 |
-| Reader `provides` matches the collections its `read()` returns; rows only on `ok` collections | P9 |
-| No reader-id literal anywhere outside `readers/`; `rtnl` has no special case in the core | D28 |
-| A reader whose `read()` throws is recorded and does not prevent a snapshot | P9, D28 |
-| Every collection unclaimed by a surviving reader is declared with a reason | P9 |
-| `scope.conflicts` present in every snapshot, asserted even when empty | D27 |
-| Every reader has at least one source fixture | P8, D24 |
+- collection/reader contracts through replay;
+- no shipped classification-role vocabulary;
+- no core reader-id special case;
+- no LuCI polling;
+- read-only ACL/no browser persistence/no UCI schema;
+- every shipped reader has source fixtures;
+- committed fixture MACs are synthetic/permitted constants;
+- browser hint/export/query/diff tests when Node is available.
 
-A check that cannot be automated is not enforcement; say so plainly rather than
-implying coverage. In particular: nothing here proves a real driver behaves as
-its fixture claims, nothing here measures cost on real hardware, a reader's
-declared `cost` is a claim no fixture can verify, and no repository check
-sandboxes a trusted reader or proves arbitrary installed reader code cannot
-write.
+CI makes Node tests mandatory, validates all fixture JSON, runs current LuCI
+ESLint/i18n/POT drift checks, checks shell syntax for repository shell helpers,
+and builds both package trees in the official OpenWrt SDK.
+
+Checks do **not** prove physical driver behaviour, measured hardware cost or a
+security sandbox around arbitrary reader code. Say that limitation explicitly
+rather than upgrading test evidence into a stronger claim.
 
 ## Claims
 
-Do not write that something works on hardware it has not run on. The README's
-status section is the honest summary; keep it current, including when that
-means saying a thing is untested. A passing fixture suite proves parsing,
-joining, declaration and hint logic, and nothing beyond that
-(`docs/fixtures.md`, final section).
+Do not write that a target works because a similar fixture passes. Hardware
+claims name the real device/target/kernel run that supports them and belong in
+the hardware/readiness record.
 
-Where a number appears in documentation — a table size, a threshold, an entry
-count — it carries its source. A number without provenance is a guess in
-formal dress.
+Numbers in normative/architectural prose should be either measured evidence or
+refer to a source; avoid decorative precision.
 
 ## Style
 
-ucode and JavaScript follow the surrounding OpenWrt and LuCI conventions: tabs,
-`'use strict'`, no semicolon-free experiments. Comments explain why, not what,
-and a comment recording a kernel behaviour cites the source file it was
-verified against.
+Follow surrounding OpenWrt/LuCI conventions: tabs in shipped ucode/JS where the
+project already uses them, `'use strict'`, simple POSIX `sh` for target helpers,
+and comments that explain why a non-obvious rule exists.
 
-Commit messages name the principle or decision a change serves where one
-applies.
+User-facing docs should lead with tasks/outcomes rather than internal decision
+numbers. Deep rationale can link to decisions instead of making ordinary users
+read the design history before installing the tool.

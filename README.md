@@ -1,204 +1,154 @@
 # l2-info
 
-##***PLEASE NOTE: This is work in progress, it may not function as expected, or at all.***##
+`l2-info` is a read-only OpenWrt diagnostic for answering a simple set of
+questions from one device:
 
-Answers, on one OpenWrt device, from live kernel state:
+- which MAC addresses are visible on which ports and VLANs;
+- which ports belong to which bridges and VLANs;
+- which VLAN is native/untagged on each port;
+- what changed between two user-triggered snapshots;
+- what the device could not determine, rather than silently showing an empty
+  result.
 
-- which MAC addresses are on which ports and VLANs
-- which ports are in which VLANs, tagged or untagged, and which VLAN each port
-  treats as native
-- what kind of L2 setup this device actually has, and what it cannot see
+The LuCI page is **Status → MAC & VLAN Lookup**.
 
-It takes one snapshot when you ask for it, then answers questions from that
-snapshot without re-reading the hardware. It stores nothing, runs no daemon,
-polls nothing, and writes no configuration.
+> **Project status:** pre-upstream testing. The backend and LuCI packages build
+> successfully against the official OpenWrt SDK and current LuCI, but they have
+> not yet been submitted to the OpenWrt package feeds. The installation method
+> below is therefore a reversible test install from this repository.
 
-It is a deliberately narrow, single-device tool. It makes no inferences that
-require a second device, and it does not classify — it reports what it read,
-counts what it found, and says plainly what it could not determine. See
-`docs/principles.md`, which is the document to read first.
+## What it does — and does not do
 
-## Shape
+Press **Update snapshot** and the backend reads the device's live bridge,
+forwarding and neighbour state once. The browser then filters, searches and
+compares that snapshot without re-reading the hardware.
 
-Two packages, developed in this repository, intended for two different
-upstream trees:
+`l2-info`:
 
-| Package | Contents | Upstream target |
-|---|---|---|
-| `l2-info` | rpcd ucode plugin exposing ubus object `l2-info`, plus the one core reader | `openwrt/packages` |
-| `luci-app-l2-info` | LuCI view, menu entry, ACL | `openwrt/luci` |
+- stores no network state;
+- runs no daemon of its own;
+- does not poll;
+- ships no UCI configuration;
+- has a read-only LuCI ACL;
+- does not change bridge, VLAN, interface or forwarding configuration.
 
-Data is read through *readers*: small, separately packaged modules that declare
-what they can see. The core ships exactly one, for the kernel bridge and
-neighbour tables via netlink, and treats it identically to any third-party
-one. Sources are extensible; the attribute vocabulary deliberately is not. See
-`docs/readers.md`.
+Some switch drivers make an FDB read comparatively expensive. The duration is
+shown in the page so that cost is visible; another snapshot is only taken when
+you ask for one.
 
-The backend has no LuCI dependency and is usable on a headless device:
+## Quick test install
+
+Git is **not** required on the OpenWrt device. Download or clone the revision
+you want to test on another machine, copy the whole checkout to the router
+(for example as `/tmp/l2-info` with `scp` or WinSCP), then run:
+
+```sh
+cd /tmp/l2-info
+sh tools/install-test.sh
+```
+
+If a required runtime package is missing, the installer stops before copying
+files and prints the appropriate `apk add` or `opkg install` command. Run that
+command, then run the installer again.
+
+If LuCI is installed, the same command installs the web interface. Refresh LuCI
+and open **Status → MAC & VLAN Lookup**. For a headless check:
 
 ```sh
 ubus call l2-info snapshot
 ```
 
-## Documentation map
-
-One fact has one home. Where a document repeats something owned elsewhere it
-is navigation, not a rival definition, and the owning document wins.
-
-| Document | Owns |
-|---|---|
-| `docs/principles.md` | The architectural rules and how each is enforced |
-| `docs/architecture.md` | Components, data flow, kernel interfaces, cost model |
-| `docs/readers.md` | The reader contract: manifest, discovery, merging, obligations |
-| `CONTRIBUTING.md` | How to work on this, and how to contribute hardware coverage |
-| `docs/snapshot-format.md` | The snapshot contract: envelope, scope, rows, versioning |
-| `docs/fixtures.md` | Device classes, fixture layout, capture and redaction |
-| `docs/decisions.md` | Every settled and deferred decision, with consequences |
-| `docs/remediation.md` | The current upstream-hardening work plan and hardware matrix |
-| `CONVENTIONS.md` | Contributor and agent conventions, mechanical checks |
-
-## Status
-
-Implemented, covered by fixtures, and run on real hardware. A GS1920-24 v1
-(rtl839x, kernel 6.18.44) assembles a full 28-port snapshot in about 1.2–1.3 s.
-Live validation on that switch exposed merge, reader, scope, hint and export
-defects (D40–D45), all of which are now represented in the design or fixtures.
-
-A later x86/64 OpenWrt software-bridge sweep verified empty-bridge handling
-(D46) and deliberately challenged several assumptions that had looked
-reasonable from the switch captures alone. In particular, FDB row shape does
-**not** portably identify hardware versus software provenance; the development
-`entries_switch_reported` / `entries_bridge_reported` split was therefore
-removed (D47). The same sweep added bridge-device link addresses to the
-reported vocabulary so the device's own FDB observations can be recognised by
-an exact reported-value join, including for an empty bridge.
-
-D46 and D47 have since been cross-checked on several live platforms. On the
-GS1920-24 v1, generic RTM_GETLINK identifies `switch` directly as a bridge and
-supplies its link address while AF_BRIDGE exposes the same bridge self-mastered.
-The current backend reports `br.address`, marks matching FDB observations local,
-and keeps the removed provenance-split fields absent.
-
-A GS1900-8HP B1 adds a second Realtek generation (`rtl838x`, kernel 6.12.94).
-Its generic link view identifies `switch` directly as a bridge while DSA user
-ports identify as `type: "dsa"` even though their nested slave metadata also
-contains `type: "bridge"`. An operator-configured management child `switch.20`
-identifies as `type: "vlan"`. The production backend reports exactly one bridge
-and eight ports, keeps `switch.20` out of the bridge-port collection, recognises
-the switch's distinct per-port link addresses as local, and produced 141 raw
-FDB observations in 1.187 s. The simultaneous `bridge -j fdb show` cross-check
-also contained 141 rows.
-
-A Cudy WR3000P v1 adds a contemporary `mediatek/filogic` router case. Its
-`br-lan` bridge is directly identifiable, but some real bridge members (`wan`
-and Wi-Fi AP interfaces) have no useful top-level generic link kind and only
-nested `slave.type: "bridge"`; AF_BRIDGE still supplies membership correctly.
-VLAN children such as `br-lan.20` remain outside the port set. The live snapshot
-reported one bridge, eight ports, 130 raw FDB observations and 13 neighbours in
-233 ms with no conflicts. `bridge -j fdb show` also contained 130 rows; three
-same-MAC/same-port/same-VLAN pairs differed only in flags and merged to 127
-assembled observations. Those merged rows can carry `self` while remaining
-non-local, reinforcing D47's rule that `self` is not a locality test.
-
-A Linksys SPNMX56 adds a `qualcommax/ipq50xx` case and exposed a different
-source defect: its AF_BRIDGE FDB walk emits large and unstable numbers of
-`00:00:00:00:00:00` placeholder rows, including VIDs not present in bridge VLAN
-membership. D49 rejects only that unusable FDB subject identity. In the post-fix
-validation, the production snapshot contained 121 FDB observations; the
-simultaneous `bridge -j fdb show` contained 1,422 rows, of which 1,301 were
-all-zero placeholders, and its remaining 121 non-zero `(MAC, port, VLAN)`
-identities matched the snapshot exactly. The bogus VIDs disappeared without
-losing any real identity. The same snapshot completed in 915 ms.
-
-A Linksys EA8300 adds an older `ipq40xx/generic` Qualcomm DSA case. Its
-`br-lan`/DSA/Wi-Fi/VLAN-child representation fits the same D46 model already
-covered by the newer router fixtures. The production snapshot reported one
-bridge, eleven ports, 175 raw FDB observations and 16 neighbours in 396 ms with
-no conflicts. `bridge -j fdb show` also contained 175 rows; those collapsed to
-141 unique `(MAC, port, reported-VLAN)` identities, exactly matching the 141
-assembled FDB observations. All 34 duplicate identity pairs differed only in
-reported flags, merged with `self` in the union, and remained non-local.
-
-The planned hardware portability sweep is now complete across x86 software
-bridging, two Realtek switch generations, Mediatek Filogic, Qualcomm ipq50xx and
-Qualcomm ipq40xx. No live target produced the partial-attribute case contemplated
-by R5, so that schema expansion is deferred until real evidence justifies it.
-
-The current ucode/mechanical suite has now run cleanly on both Qualcomm targets:
-**33 groups pass**, including `null-empty-dump`, `empty-bridge-local`, the
-RTL838x and Filogic link-shape fixtures, and `zero-fdb-placeholder`. Browser-side
-hint/export/query/diff unit tests are still skipped on targets without Node and
-remain an R11 CI task.
-
-`sh tests/run.sh` discovers and replays fixtures across source, discovery and
-device seams and runs the mechanical checks that enforce the principles. With
-Node present it also directly tests hint, export, query/filter and diff/scope
-policy. What that proves is parsing, merging, scope declaration, derivation and
-the tested presentation policy. What it cannot prove is that any real driver
-behaves as its fixture claims, or what a snapshot costs on hardware — both need
-live validation (`docs/fixtures.md`, final section).
-
-Open decisions: D21 (a `capture` method for fixture contribution) and D22
-(panel layout).
-
-## Trying it
-
-Git is **not required on a target OpenWrt device**. A normal development flow is
-to download or extract the desired repository branch on another machine, copy
-the resulting directory to the device (for example to `/tmp/l2-info` with
-WinSCP), and run the helper scripts from that copied checkout.
+To remove the test install:
 
 ```sh
-# dependencies
-apk add rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
-# or: opkg install rpcd-mod-ucode ucode-mod-rtnl ucode-mod-ubus ucode-mod-fs
-
 cd /tmp/l2-info
-
-# install/update the backend from this copied checkout
-sh tools/install-dev-backend.sh
-
-# take one read-only hardware-validation bundle, including the fixture suite
-sh tools/collect-validation.sh
+sh tools/uninstall-test.sh
 ```
 
-`tools/install-dev-backend.sh` is a development helper, not a package-manager
-replacement. Because manual copying bypasses package dependency resolution, it
-first verifies that the ucode modules required by the backend are actually
-available and prints the appropriate `apk add`/`opkg install` command if not.
-It then installs/reloads the core before replacing the dynamically loaded
-reader, avoiding a transient new-reader/old-assembler contract mismatch, and
-verifies that the ubus object re-registers. It does not trigger a snapshot
-automatically.
+The uninstall removes only `l2-info` files and leaves shared dependencies
+installed.
 
-`tools/collect-validation.sh` creates a timestamped directory under `/tmp` by
-default. It records board metadata, runtime module availability, one production
-snapshot, the safe rtnetlink link probe, optional `bridge -j` cross-checks when
-`ip-bridge` is installed, and the fixture/mechanical test output. It requires no
-git, Node or jq. When `sha256sum` is available it also records hashes of both
-the copied source files and the installed backend, so an archive/WinSCP
-workflow still has exact code provenance. Copy the resulting directory off the
-device with WinSCP for analysis.
+For step-by-step installation, updating, troubleshooting and privacy notes, see
+[`docs/getting-started.md`](docs/getting-started.md).
 
-Validation bundles are deliberately raw evidence and may contain MAC addresses,
-IP addresses and host names. They are suitable for private analysis but must not
-be committed as fixtures until D15 redaction has been applied.
+## Hardware validation so far
 
-For development from another Unix-like machine, the individual backend/view
-files can still be copied with `scp`; the copied-checkout workflow above is the
-preferred path when validating several physical devices.
+The current design has been exercised on deliberately different OpenWrt
+platforms rather than being tied to a device allowlist:
 
-## Relation to bearings
+| Platform | Validation role |
+|---|---|
+| x86/64 software bridges | no bridge, empty bridge, populated bridge and VLAN-filtered bridge behaviour |
+| Zyxel GS1920-24 v1 (`rtl839x`) | 28-port Realtek DSA switch, expensive hardware FDB walk |
+| Zyxel GS1900-8HP B1 (`rtl838x`) | second Realtek generation and a different DSA link representation |
+| Cudy WR3000P v1 (`mediatek/filogic`) | mixed DSA, WAN and Wi-Fi bridge membership |
+| Linksys SPNMX56 (`qualcommax/ipq50xx`) | Qualcomm DSA and all-zero FDB placeholder behaviour |
+| Linksys EA8300 (`ipq40xx/generic`) | older Qualcomm DSA/Wi-Fi representation |
 
-Some of the design choices are related to something else I'm working on, as yet
-unpublished:
-`bearings` is a separate fleet-scale system: many devices, spooled captures, a
-store, and cross-device inference. This project borrows its attribute
-vocabulary and several of its hard-won lessons (see `docs/decisions.md` D9,
-D18, D19) and deliberately borrows none of its machinery. The two answer
-different questions, and this one exists because the narrow question does not
-need any of that apparatus.
+That is evidence, not a compatibility whitelist. Other targets are exactly what
+the pre-upstream test phase is intended to find. The detailed hardware matrix
+and measurements live in [`docs/remediation.md`](docs/remediation.md).
+
+## Package shape
+
+The repository develops two packages intended for two upstream trees:
+
+| Package | Purpose | Intended upstream |
+|---|---|---|
+| `l2-info` | rpcd ucode backend and the core rtnetlink reader | `openwrt/packages` |
+| `luci-app-l2-info` | LuCI view, menu entry and read-only ACL | `openwrt/luci` |
+
+The backend has no LuCI dependency and exposes one method:
+
+```sh
+ubus call l2-info snapshot
+```
+
+Readers are an internal extension seam for adding other *sources* of L2 facts
+without allowing each source to invent a different output vocabulary. The core
+currently ships one reader, using rtnetlink.
+
+## Testing and CI
+
+`sh tests/run.sh` replays source, discovery and device fixtures and runs the
+mechanical checks that enforce the project's design rules. CI additionally:
+
+- runs the browser-side hint/export/query/diff tests with Node;
+- validates every fixture JSON file;
+- runs current LuCI ESLint and checks that the translation template is current;
+- builds both intended packages in the official OpenWrt x86_64 SDK.
+
+Passing CI proves the tested parsing, merging, declaration, presentation logic
+and package integration. It cannot prove how an unseen physical driver behaves
+or how long its hardware reads take; those still need live validation.
+
+## Useful documentation
+
+Start with the document that matches what you are trying to do:
+
+- **Install or test it:** [`docs/getting-started.md`](docs/getting-started.md)
+- **Contribute or run the tests:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- **Understand the design rules:** [`docs/principles.md`](docs/principles.md)
+- **Understand the components and kernel reads:** [`docs/architecture.md`](docs/architecture.md)
+- **Consume the JSON snapshot:** [`docs/snapshot-format.md`](docs/snapshot-format.md)
+- **Understand or add a reader:** [`docs/readers.md`](docs/readers.md)
+- **Add hardware evidence/fixtures:** [`docs/fixtures.md`](docs/fixtures.md)
+- **See current design decisions:** [`docs/decisions.md`](docs/decisions.md)
+- **See detailed decision history:** [`docs/decisions-history.md`](docs/decisions-history.md)
+- **See upstream-hardening status and hardware matrix:** [`docs/remediation.md`](docs/remediation.md)
+
+## Feedback
+
+For an ordinary bug or confusing result, include the OpenWrt version, device
+model/target, the exact revision or tag tested, and what the **Device and
+data-source details** panel says.
+
+For a new hardware target, `sh tools/collect-validation.sh` creates a much more
+useful diagnostic bundle. **That bundle and the LuCI “Download JSON” export can
+contain real MAC addresses, IP addresses and hostnames. Do not post either
+publicly without reviewing/redacting it.** See `docs/getting-started.md` and
+`docs/fixtures.md`.
 
 ## Licence
 
-Apache-2.0, matching LuCI (`docs/decisions.md` D16).
+Apache-2.0.

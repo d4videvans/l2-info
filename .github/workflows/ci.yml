@@ -51,6 +51,11 @@ jobs:
           sudo ldconfig
           test "$(ucode -e 'print("ok")')" = ok
 
+      - name: Validate shell helper syntax
+        run: |
+          find tools tests -type f -name '*.sh' -print0 \
+            | xargs -0 -n1 sh -n
+
       - name: Validate fixture JSON
         run: |
           find fixtures -type f -name '*.json' -print0 \

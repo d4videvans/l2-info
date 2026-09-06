@@ -1,335 +1,271 @@
 # Architecture
 
-**Document class:** canonical structure and mechanism. Rules live in
-`docs/principles.md`; the data contract lives in `docs/snapshot-format.md`;
-this document owns components, boundaries, kernel interfaces, and cost.
+**Document class:** canonical structure/mechanism. Rules live in
+`docs/principles.md`; the snapshot contract lives in
+`docs/snapshot-format.md`; this document owns components, boundaries, source
+interfaces and the cost model.
 
 ## Components
 
-```
-                        browser
-  ┌───────────────────────────────────────────────┐
-  │ luci-app-l2-info    view (JS)                 │
-  │   current + previous snapshot in memory       │
-  │   filtering · diff · hints · export           │
-  └───────────────────┬───────────────────────────┘
-                      │ ubus over LuCI RPC, read-only ACL
-  ┌───────────────────▼───────────────────────────┐
-  │ l2-info             rpcd ucode plugin         │
-  │  ┌─────────────────────────────────────────┐  │
-  │  │ assembler                               │  │
-  │  │   discover readers · call read()        │  │
-  │  │   merge by subject · declare scope      │  │
-  │  │   derive once · stamp source            │  │
-  │  └───────┬──────────────────┬──────────────┘  │
-  │          │                  │                 │
-  │  ┌───────▼───────┐  ┌───────▼───────────────┐ │
-  │  │ reader: rtnl  │  │ reader: <third party> │ │
-  │  │ (core)        │  │ optional, packaged    │ │
-  │  └───────┬───────┘  └───────┬───────────────┘ │
-  └──────────┼──────────────────┼─────────────────┘
-             │ netlink          │ its own source
-  ┌──────────▼──────────────────▼─────────────────┐
-  │ kernel: bridge FDB · bridge VLANs · links     │
-  │         neighbour tables        · other       │
-  └───────────────────────────────────────────────┘
+```text
+                         browser
+  ┌────────────────────────────────────────────────┐
+  │ luci-app-l2-info                               │
+  │ current + previous snapshot in memory          │
+  │ filter · diff · hints · export                 │
+  └───────────────────┬────────────────────────────┘
+                      │ LuCI RPC / read-only ACL
+  ┌───────────────────▼────────────────────────────┐
+  │ l2-info: rpcd ucode object                     │
+  │  assembler                                      │
+  │   discover readers · call read(ctx)            │
+  │   validate · merge · declare scope · derive    │
+  │        │                                        │
+  │        ├── reader: rtnl (bundled)              │
+  │        └── reader: optional third party        │
+  └────────┼───────────────────────────────────────┘
+           │ source primitives
+  ┌────────▼───────────────────────────────────────┐
+  │ local kernel/files/ubus state                  │
+  └────────────────────────────────────────────────┘
 ```
 
-`l2-info` is loaded in-process by rpcd, so there is no fork per call and no
-cost at all when nothing is querying it. It has no LuCI dependency and is
-independently useful: `ubus call l2-info snapshot`.
+The backend is loaded in-process by rpcd. It has no LuCI dependency and is
+independently usable with:
 
-## The one boundary that matters
+```sh
+ubus call l2-info snapshot
+```
 
-**Derivation is backend. Filtering is view.**
+There is no daemon of its own and no recurring work when nobody asks for a
+snapshot.
 
-Anything that computes a fact about the network — a join, a count, an address
-classification, the single permitted inference — happens in ucode and lands in
-the snapshot, so that every consumer (the view, a shell, a script, another
-tool) gets identical answers. Anything that decides what to *show* — the port
-filter, the MAC substring match, hiding multicast, hint text — happens in the
-view.
+## Boundaries
 
-The failure this prevents is a snapshot whose meaning depends on which client
-rendered it. It is also why `snapshot()` takes no arguments: a filtered read
-would put view policy in the backend and, worse, make two queries return
-mutually inconsistent data.
+### Readers report; the assembler derives
 
-There is a second boundary of the same kind one layer down: **readers report,
-the assembler derives.** A reader emits `subject` and `attrs` only; joins,
-counts, classification and the single inference happen once, in the assembler,
-over the merged row set. Without that rule a plugin architecture becomes N
-implementations of one inference, drifting — the same failure that removed the
-role vocabulary, relocated inside this codebase where it would be harder to
-spot. The contract is in `docs/readers.md`; the reasoning is
-`docs/decisions.md` D32.
+Readers return source-level `subject`/`attrs` plus collection statuses. They do
+not join, count, classify, infer or stamp their own provenance.
 
-## Method surface
+The assembler validates/merges all surviving reader evidence, then computes the
+closed set of `derived` values once. This prevents separate readers from growing
+separate implementations of the same inference.
 
-One method. `snapshot()`, no arguments, returns the structure defined in
-`docs/snapshot-format.md`.
+### Derivation is backend; filtering is presentation
 
-Everything the tool answers is a question about one snapshot, so a second
-method would either duplicate a subset of the first or reintroduce per-query
-reads. Adding a method requires a decision record.
+Anything that changes the factual meaning of a row belongs in the backend so
+all consumers receive the same answer. Anything that decides what a user wants
+to see — port/VLAN/MAC filters, hiding multicast/protocol addresses, hints — is
+view policy.
 
-## Reads performed by the `rtnl` reader
+That is why `snapshot()` has no query arguments. Two filtered backend reads
+would be two different acquisition moments and could disagree for reasons a
+user could not distinguish from a bug.
 
-| # | Source | Interface | Yields |
+### Trusted reader code, not sandboxed plugins
+
+Readers run as ucode inside rpcd. `read(ctx)` is a conformance/test seam, not a
+security boundary. An installed reader is trusted on the same basis as any
+other installed package code.
+
+## One method
+
+The public ubus surface has one method:
+
+```text
+l2-info.snapshot()
+```
+
+It takes no arguments and returns `l2-info.snapshot` v1. D21 records a possible
+future contributor/capture facility, but no second ubus method exists today.
+
+## Reads performed per snapshot
+
+The snapshot combines core self-description with the bundled reader's local
+observations:
+
+| Owner | Source | Interface | Purpose |
 |---|---|---|---|
-| 1 | Board | `ubus call system board` | board name, target, kernel — makes the snapshot self-describing |
-| 2 | Link identity | generic `RTM_GETLINK` | interface kind; bridge identity from `linkinfo.type == "bridge"`; bridge link address |
-| 3 | Bridge links | `RTM_GETLINK`, `family=AF_BRIDGE`, `ext_mask` | ports, bridge membership, carrier, per-port VLAN membership with PVID and untagged flags |
-| 4 | FDB | `RTM_GETNEIGH`, `family=AF_BRIDGE` | MAC, port, VLAN id, state and flags, master where reported |
-| 5 | Neighbours | `RTM_GETNEIGH`, `family=AF_INET` / `AF_INET6` | MAC → IP, for recognisability |
-| 6 | Names | `/tmp/dhcp.leases`, `/var/dhcp.leases`, `/etc/ethers` | MAC → hostname |
+| assembler/core | board metadata | `ubus call system board` | board/model/target/kernel self-description |
+| `rtnl` reader | generic link identity | RTM_GETLINK | bridge identity and bridge link address |
+| `rtnl` reader | bridge membership/VLANs | RTM_GETLINK + `AF_BRIDGE` | member ports, carrier, bridge/VLAN membership, PVID/untagged flags |
+| `rtnl` reader | forwarding database | RTM_GETNEIGH + `AF_BRIDGE` | MAC, port, reported VLAN, flags/state, master where reported |
+| `rtnl` reader | neighbours | RTM_GETNEIGH + IPv4/IPv6 families | MAC-to-IP annotation |
+| `rtnl` reader | local naming files | `/tmp/dhcp.leases`, `/var/dhcp.leases`, `/etc/ethers` | MAC-to-hostname annotation |
 
-These are the core reader's reads, not the tool's: a third-party reader has its
-own list and declares which collections it covers. Reads 1–4 are load-bearing.
-Reads 5–6 are annotation: on a pure L2 switch they are legitimately near-empty,
-which is a declared `ok`-with-zero-rows or `unavailable`, never a blank column
-(P1).
+The board metadata does **not** decide collection success or FDB identity; it
+makes the resulting snapshot self-describing. The link/FDB reads are the
+load-bearing topology/forwarding evidence. Neighbour/name data is annotation.
 
-Every netlink read goes through one wrapper that checks `rtnl.error()` and
-returns either rows or an error. `ucode-mod-rtnl` represents a successful
-zero-row multipart dump as `null` with no error, so the wrapper normalises that
-specific pair to an empty array (D48). A failure and an empty result therefore
-remain distinguishable.
+Every rtnetlink dump uses one wrapper that checks the independent error channel.
+Current `ucode-mod-rtnl` can represent a successful zero-row multipart dump as
+`null` with no `nl.error()`; that pair is normalised to an empty successful row
+set before collection semantics are applied.
 
-The two link dumps are deliberately coupled for the `bridges` and `ports`
-collections: if generic link identity and AF_BRIDGE membership cannot both be
-read consistently, those collections are declared unavailable rather than one
-view being promoted into a substitute for the other (D46).
+## Why rtnetlink is the bundled source
 
-Read 6's presence is probed per call rather than cached, because a lease file
-only exists once a first lease has been issued and that can happen after this
-process started.
+The core reader uses the kernel interfaces directly rather than shelling out to
+`bridge`/`ip-bridge` or reading vendor debugfs.
 
-## Why netlink, and only netlink
+- `bridge -j ...` would add a runtime binary dependency for information the
+  kernel already exposes.
+- vendor debugfs tables can be cheaper on one chipset but are unstable,
+  vendor-specific and make core behaviour depend on the hardware family.
 
-`ucode-mod-rtnl` covers the Linux bridge and neighbour interfaces this core
-reader needs. Two alternatives were considered and rejected
-(`docs/decisions.md` D3):
+The reader architecture allows a separately packaged source where real evidence
+justifies one, but the core does not branch on target/device id. A device lacking
+a source gets an explicit scope declaration, not a silent alternate path.
 
-- **`bridge -j fdb show`** requires the `ip-bridge` package, which is not
-  installed by default. In the related fleet project its absence silently
-  emptied an entire capture channel for two capture rounds. A dependency that
-  can be missing is a P1 violation waiting to happen, and shelling out buys
-  nothing netlink does not already provide.
-- **debugfs (`/sys/kernel/debug/rtl83xx/l2_table`)** would walk one vendor's
-  hardware table in a single pass rather than once per port, which is
-  genuinely cheaper on that hardware. It is rejected on principle: a
-  single-vendor, unstable-format, root-only debug interface makes behaviour
-  depend on which switch you are standing in front of, which is the opposite
-  of the design goal. Not "not yet" — out.
+## Bridge identity and membership are different facts
 
-Device-agnosticism is therefore achieved by *declaring* rather than by
-branching. There is one code path in the core; what varies is what that path
-can see, and the snapshot says which.
+Two link views are intentionally used:
 
-D3 as amended narrows this to *undeclared, unconditional, core* dependence
-(`docs/decisions.md` D3, D24). A separately packaged reader with a manifest is
-permitted, because the core's behaviour still does not vary by device — a
-device without a given reader gets a declaration, not silence. Debugfs remains
-out on its own merits rather than by category.
+1. generic RTM_GETLINK identifies a bridge from its own
+   `linkinfo.type == "bridge"` and reports its link address;
+2. AF_BRIDGE RTM_GETLINK supplies bridge-port membership and live bridge-VLAN
+   membership.
 
-## What actually varies between devices
+This split is required for portability. Live systems have shown bridge devices
+that are self-mastered in AF_BRIDGE, bridges whose members have top-level
+`type: "dsa"`, Wi-Fi/other members with no useful top-level kind, and VLAN child
+interfaces that must not become bridge ports. An empty bridge has no member
+reference at all, so membership cannot define bridge existence.
 
-Five arrangements, all of which produce correct-but-different snapshots. These
-are useful fixture classes (`docs/fixtures.md`).
+If AF_BRIDGE names a master that generic link identity did not identify as a
+bridge, the read is declared inconsistent rather than promoting the reference
+into a guessed bridge.
 
-1. **DSA where the driver exposes switch FDB entries through the kernel.** The
-   device/driver may make additional forwarding observations visible.
-2. **DSA where it does not.** Relevant forwarding entries may be absent from a
-   single dump, with nothing in that empty sample proving why. This is the case
-   P4 exists for.
-3. **Software bridge, VLAN filtering on.** No switch hardware is involved, but
-   the AF_BRIDGE FDB can still contain `self` rows and rows without a master.
-4. **Software bridge, filtering off.** VLAN ids may be absent from forwarding
-   observations; the filtering flag is the positive topology fact that tells
-   the view what the bridge is configured to do.
-5. **Bridge-per-VLAN.** Tagging happens at the netdev layer, one bridge per
-   VLAN. Per-port bridge-VLAN data alone must not be promoted into a claim
-   about an external segment without matching reported evidence.
+## FDB shape is evidence, not provenance
 
-### FDB row shape is not a hardware/software discriminator
+`self`, missing/present master and missing/present `fdb.bridge` are retained as
+reported fields. They are **not** classified as hardware-versus-software origin.
 
-The GS1920 cross-check originally suggested a convenient structural split:
-`self` with no master appeared on the switch-oriented path, while rows carrying
-a master appeared through the bridge-oriented path. That observation remains
-useful for that device and driver, but the generalisation is false.
+That rule was forced by live x86 software-bridge evidence: ordinary software
+bridges can produce the same `self`/no-master shapes that initially looked like
+switch-hardware reporting on Realtek DSA.
 
-On x86/64 OpenWrt 25.12.5 with a pure software Linux bridge and no switch ASIC,
-many FDB rows also carried `self` and no `fdb.bridge`. The development build's
-old `entries_switch_reported` / `entries_bridge_reported` counters therefore
-reported a supposed "switch" population on a system where no switch hardware
-existed. D47 removes those fields.
+`scope.fdb.count` therefore means raw valid FDB observations before merge, not
+"hardware entries" or "bridge entries".
 
-The architecture keeps the raw facts — `fdb.flags`, `fdb.bridge`, port, VLAN —
-and refuses the provenance classification. `scope.fdb.count` is simply the
-number of raw FDB observations before merging. An empty successful FDB dump
-remains `indeterminate` when one sample cannot establish whether the table is
-truly empty or observation coverage is incomplete (P4).
-
-Classes 3–5 remain readable from the link dumps and bridge state without using
-FDB row shape as provenance. Bridge existence comes from the generic link kind,
-independently of whether the bridge has members (D46).
-
-## Kernel behaviour this design depends on
-
-Verified against current sources and hardware observations, and worth
-restating because several are counter-intuitive.
-
-- **Bridge identity and address are in the generic link view, not AF_BRIDGE
-  membership.** `ucode-mod-rtnl` decodes `IFLA_INFO_KIND` as `linkinfo.type`.
-  On x86/64 OpenWrt 25.12.5 (kernel 6.12.94), software bridges appeared as
-  `linkinfo.type: "bridge"` in generic RTM_GETLINK; the same bridge devices in
-  AF_BRIDGE could expose `linkinfo: null` and appear self-mastered. The
-  production backend was then installed and a deliberately empty `l2probe0`
-  was reported as one bridge with zero ports. Generic RTM_GETLINK also provides
-  the bridge link address, now emitted as `br.address` (D46, D47).
-- **`rtnl_fdb_dump()` filters by ifindex.** Setting the request header's
-  ifindex causes the kernel to skip every other netdev, so a port-scoped dump
-  can avoid a full-device walk. This tool does not use that path — consistency
-  requires one whole snapshot — but it remains the fallback if measured cost
-  ever makes the current model unusable (`docs/decisions.md` D20).
-- **DSA can emit FDB observations without `NDA_MASTER`.** That is a fact about
-  those driver paths, not a portable provenance classifier for arbitrary FDB
-  rows. Where an FDB observation has no `fdb.bridge`, `derived.bridge` may join
-  from the reporting port's topology.
-- **`NDA_VLAN` may be omitted when no VLAN id is reported**, including the
-  untagged/non-filtering cases that motivated the single permitted PVID
-  inference (P3).
-- **Duplicate observations are legitimate.** One address may be reported more
-  than once with different raw VLAN/master/flag fields. Distinct
-  `(mac, port, vlan)` observations are never collapsed on the strength of an
-  inferred VLAN; exact observation identity and set-valued merge rules are D40.
-- **`RTEXT_FILTER_*` is not exported by `ucode-mod-rtnl`**, so the ext_mask
-  value is a numeric literal with a reference to `linux/if_link.h`.
+All-zero lladdrs are rejected as unusable FDB identities. A Qualcomm target
+produced large unstable runs of `00:00:00:00:00:00` rows with placeholder VLANs;
+removing only the zero identity left a stable one-for-one match with the
+non-zero `bridge -j fdb show` identities.
 
 ## Local-address derivation
 
-`derived.local` is an exact join against addresses reported about this device.
-Originally only `topo.address` on port rows participated. The x86 empty-bridge
-case exposed the missing half: an empty bridge has its own link address and FDB
-observations but no member port whose `topo.address` can carry that value.
+`derived.local` is an exact join against addresses reported about this device:
 
-D47 therefore registers `br.address` from the generic RTM_GETLINK row and adds
-it to the same join. This does **not** say that every FDB row whose port is a
-bridge is local, and it does not interpret `self` as locality. A matching
-reported device address is required.
+- `topo.address` on port rows;
+- `br.address` on bridge rows.
 
-That distinction matters to the view: local addresses are excluded from
-movement/fan-out interpretations that would otherwise describe the device's own
-MAC as a mysteriously mobile client.
+It is not inferred from the FDB `self` flag or from an observation occurring on
+a bridge device. This matters both for correctness and for suppressing
+irrelevant "this host may have moved/fanned out" hints about the device's own
+addresses.
+
+## The one permitted inference
+
+An untagged FDB observation can omit a VLAN id. When the reporting port has a
+reported PVID, the assembler resolves the row's derived VLAN from that PVID and
+sets:
+
+```text
+vlan_source = pvid
+```
+
+A kernel-reported VLAN uses `vlan_source = fdb`. If neither exists the derived
+VLAN/source are null. The inferred value is never used to decide raw observation
+identity.
+
+## Merging
+
+Readers are merged without priority:
+
+1. validate every reader result before accepting rows;
+2. identify observations using the contract's subject/discriminator rules;
+3. collapse equal ordinary claims and union registered set-valued fields;
+4. withdraw disputed ordinary values and record all claims/conflicts;
+5. derive once over the merged evidence;
+6. stamp source attribution.
+
+A single reader can legitimately report the same MAC on several ports. That is
+several FDB observations, not a conflict.
+
+## Snapshot lifecycle in LuCI
+
+```text
+press Update -> acquire snapshot -> current
+                               old current -> previous
+```
+
+Only two snapshots are retained, both in browser memory. Queries/filtering do
+not re-read hardware. The age label ticks locally without polling.
+
+Diffing first checks compatible acquisition scope for `bridges`, `ports` and
+`fdb`, including successful reader coverage. These are load-bearing because FDB
+is the evidence being compared, port PVID can change resolved VLAN identity,
+and bridge/port addresses can change `derived.local`. Names/neighbours are
+annotation and do not block a forwarding diff.
+
+A strong `moved` interpretation is produced only for the unambiguous remote
+unicast 1->1 case. Otherwise the UI shows primitive appeared/vanished evidence.
 
 ## Cost model
 
-The expensive read is #4, and primarily on switch hardware whose driver walks
-a hardware table for each port.
+The potentially expensive operation is the AF_BRIDGE FDB dump on drivers that
+walk switch hardware per port. Realtek DSA validation showed roughly
+1.2–1.3-second complete snapshots on a 24-port rtl839x device; other validated
+router targets were substantially faster.
 
-On the realtek DSA driver, `port_fdb_dump` walks the entire hardware L2 table
-for each port, holding the switch register mutex, with `cond_resched()` every
-64 entries. Table size is 16384 entries on rtl839x and rtl930x, 8192 on
-rtl838x, plus a 64-entry CAM. An unfiltered dump on a 24-port switch is
-therefore on the order of 390,000 register-read iterations serialised on that
-mutex.
+The design accepts that cost because:
 
-This is accepted deliberately (`docs/decisions.md` D2, D20). The snapshot model
-means it happens once per user action rather than once per query, the duration
-is measured and displayed so the cost is visible rather than mysterious, and
-nothing polls. Reads 1–3, 5 and 6 are software-side and negligible beside that
-hardware walk; D46's generic link dump and D47's bridge-address capture add no
-new source read.
+- acquisition happens once per explicit user action;
+- the duration is measured/displayed;
+- every query and comparison reuses the snapshot;
+- nothing polls.
 
-Payload is not a constraint: a real 24-port switch snapshot is a few hundred
-rows, and at roughly 400 bytes per row that is well under a megabyte.
+A future device where the duration looks broken is evidence to revisit snapshot
+scope/UI, not a reason to silently introduce a different target-specific core
+path.
 
-## Assembly order
+## Current physical validation
 
-1. Discover readers: scan, load, validate manifests, check api. Every skip is
-   recorded in `scope.readers` with a reason.
-2. Call `read()` on each survivor. An exception is caught, recorded against
-   that reader, and does not prevent a snapshot.
-3. Merge rows by observation identity. Equal values from readers collapse with
-   source attribution; disputed non-set values are withdrawn and recorded as
-   conflicts. No precedence, no resolution.
-4. Declare scope: per-reader status, per-collection status and raw observation
-   count, and `not_applicable` for any collection no surviving reader claimed.
-5. Derive once over the merged set, from the closed list in
-   `docs/snapshot-format.md`.
-6. Stamp `source` on every row from the manifest id.
+The portability sweep has exercised:
 
-Steps 3–6 belong to the assembler alone. Cost is aggregated from the manifests
-at step 1, so an expensive read can be identified from the installed readers
-rather than guessed from device class.
+- x86 software bridging (including no/empty/VLAN-filtered bridge cases);
+- Realtek rtl839x and rtl838x DSA switches;
+- Mediatek Filogic mixed wired/Wi-Fi/router bridging;
+- Qualcomm ipq50xx and ipq40xx DSA/Wi-Fi targets.
 
-## Snapshot lifecycle in the view
-
-```
-press Update ──▶ snapshot() ──▶ becomes current
-                                previous ◀── former current (older discarded)
-```
-
-Two snapshots at most, in memory, lost on navigation (P7). Queries filter the
-current snapshot. The diff compares current against previous.
-
-**Scope compatibility is checked before diffing.** The load-bearing collections
-for FDB comparison are now `bridges`, `ports` and `fdb`: FDB is the evidence
-being compared; port PVID can change resolved VLAN identity; and both port and
-bridge addresses can change `derived.local`. Names and neighbours are annotation
-only and do not block a diff. Successful reader coverage for the same three
-collections is compared as well (D12, D47).
-
-If one load-bearing read succeeds in one snapshot and fails in the other, a
-naive diff can turn a coverage change into a plausible network change. P1 makes
-this a check rather than a special case: compare declarations first and refuse
-the strong comparison when coverage differs.
-
-Row identity for diffing is `(mac, port, vlan)`, giving primitive appeared and
-vanished evidence from which a port move is interpreted only in the unambiguous
-1→1 remote-unicast case. Where one side's VLAN was inferred from PVID and the
-other's was reported, the move is marked weak rather than presented as equal
-provenance.
+The exact evidence and measurements belong in `docs/remediation.md`; replayable
+cases belong in `docs/fixtures.md`.
 
 ## Repository layout
 
-```
+```text
 l2-info/
 ├── README.md
+├── CONTRIBUTING.md
 ├── CONVENTIONS.md
-├── LICENSE                       Apache-2.0
+├── LICENSE
 ├── docs/
+│   ├── getting-started.md
 │   ├── principles.md
 │   ├── architecture.md
+│   ├── readers.md
 │   ├── snapshot-format.md
 │   ├── fixtures.md
-│   └── decisions.md
-├── l2-info/                      backend package
-│   ├── Makefile
-│   └── files/usr/share/
-│       ├── rpcd/ucode/l2-info            ubus surface
-│       └── l2-info/
-│           ├── assemble.uc               assembler
-│           └── readers/rtnl.uc           the core reader
-├── luci-app-l2-info/             view package
-│   ├── Makefile
-│   ├── htdocs/luci-static/resources/
-│   │   ├── view/l2-info/main.js
-│   │   └── l2-info/{hints,query,diff}.js
-│   ├── po/
-│   └── root/usr/share/
-│       ├── luci/menu.d/luci-app-l2-info.json
-│       └── rpcd/acl.d/luci-app-l2-info.json
-├── fixtures/
-│   ├── sources/<reader>/<case>/  raw source input → reader output
-│   └── devices/<class>/          normalised reader output → snapshot
-└── tests/
-    ├── run.sh
-    ├── replay-source.uc
-    ├── replay-device.uc
-    └── replay-discovery.uc
+│   ├── decisions.md
+│   └── remediation.md
+├── l2-info/                      backend package tree
+├── luci-app-l2-info/             LuCI package tree
+├── fixtures/                     replay evidence
+├── tests/                        replay/unit/mechanical tests
+├── tools/                        test install + hardware validation helpers
+└── .github/workflows/ci.yml      mandatory repository integration checks
 ```
 
-The two packages target two different upstream trees, so this monorepo is a
-development convenience. Upstreaming splits them (`docs/decisions.md` D17).
+The monorepo is a development/review convenience. The intended upstream result
+is two independent package contributions: backend to `openwrt/packages` and
+view to `openwrt/luci`.
