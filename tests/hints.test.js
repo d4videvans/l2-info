@@ -60,6 +60,11 @@ function snapshotFor(dir) {
 }
 
 const hints = loadHints();
+const collectionLabels = {
+	bridges: 'Bridges', ports: 'Ports', fdb: 'Forwarding database',
+	neighbours: 'Neighbours', names: 'Names'
+};
+const collectionLabel = (name) => collectionLabels[name] || name;
 
 let failures = 0, checks = 0, ran = 0;
 
@@ -90,7 +95,7 @@ for (const name of fs.readdirSync(FIXTURES).sort()) {
 	/* The page shows every unicast row by default, which is what the hint
 	 * rules see (H2). */
 	const rows = (snap.fdb || []).filter((r) => r.derived.mac_class === 'unicast');
-	const view = { rows, port: expect.hints.port || '' };
+	const view = { rows, port: expect.hints.port || '', collectionLabel };
 
 	const fired = hints.evaluate(snap, view).map((h) => h.id);
 	const problems = [];
@@ -145,7 +150,7 @@ for (const name of fs.readdirSync(FIXTURES).sort()) {
 			neighbours: { status: 'ok' }, names: { status: 'ok' }, conflicts: []
 		}
 	};
-	const fired = hints.evaluate(snap, { rows: snap.fdb, port: 'lan1' }).map((h) => h.id);
+	const fired = hints.evaluate(snap, { rows: snap.fdb, port: 'lan1', collectionLabel }).map((h) => h.id);
 	checks++;
 	if (fired.includes('duplicate_reports')) {
 		console.log('  FAIL hints/vlan-aware-duplicates: duplicate_reports fired across true VLANs');
@@ -156,7 +161,7 @@ for (const name of fs.readdirSync(FIXTURES).sort()) {
 }
 
 /* B3: collection identifiers are internal vocabulary; the hint presents the
- * same translated display labels used by the scope UI. */
+ * same translated display labels supplied by the scope UI. */
 {
 	const snap = {
 		bridges: [], ports: [], fdb: [],
@@ -165,7 +170,7 @@ for (const name of fs.readdirSync(FIXTURES).sort()) {
 			neighbours: { status: 'ok' }, names: { status: 'ok' }, conflicts: []
 		}
 	};
-	const hint = hints.evaluate(snap, { rows: [] }).find((h) => h.id === 'no_reader');
+	const hint = hints.evaluate(snap, { rows: [], collectionLabel }).find((h) => h.id === 'no_reader');
 	checks++;
 	if (!hint || !hint.text.includes('Bridges')) {
 		console.log('  FAIL hints/no-reader-label: translated display label missing');

@@ -22,15 +22,6 @@
 'use strict';
 'require baseclass';
 
-function collectionLabel(name) {
-	var labels = {
-		bridges: _('Bridges'), ports: _('Ports'),
-		fdb: _('Forwarding database'), neighbours: _('Neighbours'), names: _('Names')
-	};
-
-	return labels[name] || name;
-}
-
 return baseclass.extend({
 	/* Each rule: id, kind, and a function returning null or a hint.
 	 * `view` carries what the page is currently showing, so a hint cannot
@@ -59,7 +50,7 @@ return baseclass.extend({
 		{
 			id: 'no_reader',
 			kind: 'note',
-			test: function(s) {
+			test: function(s, view) {
 				var unclaimed = Object.keys(s.scope).filter(function(k) {
 					return s.scope[k] && s.scope[k].status == 'not_applicable';
 				});
@@ -67,7 +58,9 @@ return baseclass.extend({
 				if (!unclaimed.length)
 					return null;
 
-				return _('Nothing installed on this device can read: %s. Installing a reader package adds that capability.').format(unclaimed.map(collectionLabel).join(', '));
+				var label = view.collectionLabel || function(name) { return name; };
+
+				return _('Nothing installed on this device can read: %s. Installing a reader package adds that capability.').format(unclaimed.map(label).join(', '));
 			}
 		},
 		{

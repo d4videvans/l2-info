@@ -79,6 +79,9 @@ assert('many-to-many stays primitive', d.moved.length === 0 && d.appeared.length
 
 d = mod.diff(snap([ row(MAC, 'lan2', 20) ]), snap([ row(MAC, 'lan2', 10) ]));
 assert('vlan-only change is not a move', d.moved.length === 0 && d.appeared.length === 1 && d.vanished.length === 1);
+assert('vlan-only change remains visible primitive evidence',
+	d.primitiveAppeared.length === 1 && d.primitiveAppeared[0].derived.vlan === 20 &&
+	d.primitiveVanished.length === 1 && d.primitiveVanished[0].derived.vlan === 10);
 
 d = mod.diff(snap([ row(MAC, 'lan2', 10, { local: true }) ]), snap([ row(MAC, 'lan1', 10, { local: true }) ]));
 assert('local address is not moved', d.moved.length === 0);
@@ -156,14 +159,29 @@ d = mod.diff(dualAfter, dualBefore);
 assert('dual-report raw observations remain distinct', d.appeared.length === 2 && d.vanished.length === 2);
 assert('dual-report one-port move preserved', d.moved.length === 1 && d.moved[0].from === 'lan1' && d.moved[0].to === 'lan2');
 assert('dual-report presence rows are deduplicated', d.presenceAppeared.length === 1 && d.presenceVanished.length === 1);
+assert('dual-report primitive rows are deduplicated', d.primitiveAppeared.length === 1 && d.primitiveVanished.length === 1);
 
 // Losing one raw observation must not manufacture a port move while another
-// observation still establishes presence on the old port.
+// observation still establishes the same visible placement on the old port.
 d = mod.diff(snap([
 	row(MAC, 'lan1', 5, { reported: 5 }),
 	row(MAC, 'lan2', 5, { reported: 5 })
 ]), dualBefore);
 assert('partial raw disappearance is not a move', d.moved.length === 0);
 assert('old-port presence is not reported gone', d.presenceVanished.length === 0);
+assert('old effective placement is not visibly gone', d.primitiveVanished.length === 0);
+assert('new effective placement remains visibly appeared',
+	d.primitiveAppeared.length === 1 && d.primitiveAppeared[0].attrs['fdb.port'] === 'lan2');
+
+// A raw identity change alone (explicit VLAN versus PVID-derived same VLAN)
+// is retained in raw evidence but must not become a user-visible forwarding
+// disappearance/appearance when MAC, port and effective VLAN are unchanged.
+d = mod.diff(
+	snap([ row(MAC, 'lan1', 5, { reported: 5 }) ]),
+	snap([ row(MAC, 'lan1', 5, { vlan_source: 'pvid' }) ])
+);
+assert('raw-only identity churn remains raw', d.appeared.length === 1 && d.vanished.length === 1);
+assert('raw-only identity churn is not a visible primitive change',
+	d.primitiveAppeared.length === 0 && d.primitiveVanished.length === 0);
 
 process.exit(failures ? 1 : 0);

@@ -58,11 +58,13 @@ for entry in $FILES; do
 done
 
 # Match luci.mk's package post-install cache invalidation closely enough for a
-# copied-checkout development update. The menu and ACL are then re-read after
-# rpcd reload / the next LuCI request rather than leaving stale cached state.
+# copied-checkout development update, then reload rpcd. An already logged-in
+# browser session can still show its previous navigation; the tester guidance
+# therefore treats a fresh LuCI login as the reliable menu-state check.
 rm -f /tmp/luci-indexcache.*
 rm -rf /tmp/luci-modulecache/
 /etc/init.d/rpcd reload 2>/dev/null || fail "rpcd reload failed"
 
 echo "l2-info development LuCI files installed from: $ROOT"
 echo "Refresh LuCI and open Status -> MAC & VLAN Lookup"
+echo "If the menu is stale, log out of LuCI and back in."

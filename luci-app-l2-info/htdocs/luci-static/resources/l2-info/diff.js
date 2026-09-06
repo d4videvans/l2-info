@@ -3,8 +3,8 @@
  *
  * Comparison is deliberately pure and lives outside the view so ambiguity is
  * testable. A change is evidence first; "moved" is emitted only for the one
- * case where one old observation pairs unambiguously with one new observation
- * for an ordinary remote unicast address (D12).
+ * case where one prior port presence and one current port presence differ for
+ * an ordinary remote unicast address (D12).
  */
 
 'use strict';
@@ -17,9 +17,38 @@
  * unusable. */
 var DIFF_COLLECTIONS = [ 'bridges', 'ports', 'fdb' ];
 
+/* Raw identity follows what the FDB actually reported. An untagged row whose
+ * effective VLAN comes from the PVID must remain distinct from an otherwise
+ * identical row that explicitly reported that VLAN. */
 function observationKey(r) {
 	var reported = (r.attrs['fdb.vlan'] === undefined) ? null : r.attrs['fdb.vlan'];
 	return [ r.subject.mac, r.attrs['fdb.port'], JSON.stringify(reported) ].join('/');
+}
+
+/* Primitive user-visible appeared/gone evidence is deliberately coarser than
+ * raw identity: two kernel observations which resolve to the same MAC, port
+ * and effective VLAN describe one visible forwarding placement. This preserves
+ * VLAN-only changes while preventing raw-detail churn from reading as a host
+ * disappearance (D12). */
+function primitiveKey(r) {
+	var vlan = r.derived?.vlan;
+	return [
+		r.subject.mac,
+		r.attrs['fdb.port'],
+		JSON.stringify(vlan == null ? null : vlan)
+	].join('/');
+}
+
+function keyedRows(rows, keyfn) {
+	var out = {};
+
+	(rows || []).forEach(function(r) {
+		var k = keyfn(r);
+		if (!out[k])
+			out[k] = r;
+	});
+
+	return out;
 }
 
 function collectionFingerprint(snap, name) {
@@ -112,13 +141,15 @@ function vlanFor(rows) {
 }
 
 function diff(cur, prev) {
-	var a = {}, b = {}, out = {
+	var a = keyedRows(cur.fdb, observationKey);
+	var b = keyedRows(prev.fdb, observationKey);
+	var pa = keyedRows(cur.fdb, primitiveKey);
+	var pb = keyedRows(prev.fdb, primitiveKey);
+	var out = {
 		appeared: [], vanished: [], moved: [],
+		primitiveAppeared: [], primitiveVanished: [],
 		presenceAppeared: [], presenceVanished: []
 	};
-
-	(cur.fdb || []).forEach(function(r) { a[observationKey(r)] = r; });
-	(prev.fdb || []).forEach(function(r) { b[observationKey(r)] = r; });
 
 	Object.keys(a).forEach(function(k) {
 		if (!b[k])
@@ -128,6 +159,16 @@ function diff(cur, prev) {
 	Object.keys(b).forEach(function(k) {
 		if (!a[k])
 			out.vanished.push(b[k]);
+	});
+
+	Object.keys(pa).forEach(function(k) {
+		if (!pb[k])
+			out.primitiveAppeared.push(pa[k]);
+	});
+
+	Object.keys(pb).forEach(function(k) {
+		if (!pa[k])
+			out.primitiveVanished.push(pb[k]);
 	});
 
 	var now = portPresence(cur.fdb), before = portPresence(prev.fdb);

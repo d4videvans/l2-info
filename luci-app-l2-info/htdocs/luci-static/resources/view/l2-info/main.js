@@ -28,6 +28,14 @@ var S = {
 	query: { port: '', vlan: '', mac: '', nonUnicast: false }
 };
 
+var COLLECTION_LABELS = {
+	bridges: _('Bridges'),
+	ports: _('Ports'),
+	fdb: _('Forwarding database'),
+	neighbours: _('Neighbours'),
+	names: _('Names')
+};
+
 function el(tag, attrs, children) {
 	return E(tag, attrs || {}, children);
 }
@@ -157,15 +165,7 @@ function fmtStatus(status) {
 }
 
 function fmtCollection(name) {
-	var labels = {
-		bridges: _('Bridges'),
-		ports: _('Ports'),
-		fdb: _('Forwarding database'),
-		neighbours: _('Neighbours'),
-		names: _('Names')
-	};
-
-	return labels[name] || name;
+	return COLLECTION_LABELS[name] || name;
 }
 
 function fmtScopeStatus(st) {
@@ -390,6 +390,17 @@ function fmtScopeDifference(d) {
 	return _('unknown scope difference');
 }
 
+function fmtDiffVlan(vlan) {
+	return (vlan == null) ? el('em', {}, _('none')) : String(vlan);
+}
+
+function fmtMoveVlan(m) {
+	if (m.fromVlan == m.toVlan)
+		return fmtDiffVlan(m.toVlan);
+
+	return [ fmtDiffVlan(m.fromVlan), ' → ', fmtDiffVlan(m.toVlan) ];
+}
+
 function renderDiff() {
 	if (!S.previous)
 		return el('div', {}, el('em', {},
@@ -408,16 +419,29 @@ function renderDiff() {
 			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, m.mac),
 			_('moved'),
 			'%s → %s'.format(m.from, m.to),
+			fmtMoveVlan(m),
 			m.weak ? el('em', {}, _('VLAN partly inferred')) : ''
 		];
-	}).concat(d.presenceAppeared.filter(function(r) {
+	}).concat(d.primitiveAppeared.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
-		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('appeared'), r.attrs['fdb.port'], '' ];
-	})).concat(d.presenceVanished.filter(function(r) {
+		return [
+			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac),
+			_('appeared'),
+			r.attrs['fdb.port'],
+			fmtDiffVlan(r.derived?.vlan),
+			''
+		];
+	})).concat(d.primitiveVanished.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
-		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('gone'), r.attrs['fdb.port'], '' ];
+		return [
+			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac),
+			_('gone'),
+			r.attrs['fdb.port'],
+			fmtDiffVlan(r.derived?.vlan),
+			''
+		];
 	}));
 
 	var note = el('div', { 'class': 'cbi-value-description' },
@@ -428,7 +452,7 @@ function renderDiff() {
 		return el('div', {}, [ el('em', {}, _('No forwarding changes.')), note ]);
 
 	return el('div', {}, [
-		table([ _('MAC'), _('Change'), _('Port'), _('Note') ], rows, _('Nothing changed.')),
+		table([ _('MAC'), _('Change'), _('Port'), _('VLAN'), _('Note') ], rows, _('Nothing changed.')),
 		note
 	]);
 }
@@ -514,7 +538,9 @@ return view.extend({
 			dom.content(queryNotice, renderQueryErrors(filtered.query.errors));
 			dom.content(resultsBox, renderResults(S.current, filtered));
 			dom.content(hintsBox, renderHints(hints.evaluate(S.current, {
-				rows: rows, port: S.query.port
+				rows: rows,
+				port: S.query.port,
+				collectionLabel: fmtCollection
 			})));
 		}
 
