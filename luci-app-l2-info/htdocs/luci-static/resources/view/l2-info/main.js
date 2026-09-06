@@ -111,12 +111,6 @@ function fmtVlan(d) {
 	return String(d.vlan);
 }
 
-function fmtMac(mac) {
-	return el('span', {
-		'style': 'font-family:monospace; white-space:nowrap'
-	}, mac);
-}
-
 function fmtIdentity(d) {
 	if (d.hostname)
 		return d.hostname;
@@ -269,7 +263,7 @@ function renderHints(list) {
 function renderResults(snap, rows) {
 	var body = rows.map(function(r) {
 		return [
-			fmtMac(r.subject.mac),
+			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac),
 			r.attrs['fdb.port'] || '?',
 			r.derived.bridge || el('em', {}, '–'),
 			fmtVlan(r.derived),
@@ -413,7 +407,7 @@ function renderDiff() {
 	var d = compare.diff(S.current, S.previous);
 	var rows = d.moved.map(function(m) {
 		return [
-			fmtMac(m.mac),
+			el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, m.mac),
 			_('moved'),
 			'%s → %s'.format(m.from, m.to),
 			m.weak ? el('em', {}, _('VLAN partly inferred')) : ''
@@ -421,11 +415,11 @@ function renderDiff() {
 	}).concat(d.appeared.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
-		return [ fmtMac(r.subject.mac), _('appeared'), r.attrs['fdb.port'], '' ];
+		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('appeared'), r.attrs['fdb.port'], '' ];
 	})).concat(d.vanished.filter(function(r) {
 		return !d.moved.some(function(m) { return m.mac == r.subject.mac; });
 	}).map(function(r) {
-		return [ fmtMac(r.subject.mac), _('gone'), r.attrs['fdb.port'], '' ];
+		return [ el('span', { 'style': 'font-family:monospace; white-space:nowrap' }, r.subject.mac), _('gone'), r.attrs['fdb.port'], '' ];
 	}));
 
 	var note = el('div', { 'class': 'cbi-value-description' },
