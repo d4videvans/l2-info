@@ -1,0 +1,40 @@
+---
+name: Fix RC3 release check once
+
+on:
+  push:
+    branches:
+      - fix/rc3-release-identity
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/rc3-release-identity
+      - name: Correct shell block and self-remove
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('tests/run.sh')
+          s = p.read_text()
+          start = s.index(r'\t# Public test-release identity:')
+          end = s.index('\n\t# Demo rewrites share one authoritative precondition checker with install.', start)
+          block = s[start:end]
+          block = block.replace(r'\t', '\t').replace('\\\\', '\\')
+          s = s[:start] + block + s[end:]
+          p.write_text(s)
+          PY
+          rm -f .github/workflows/rc3-fix-check-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          sh -n tests/run.sh
+          git commit -m "Fix RC3 release consistency check"
+          git push origin HEAD:fix/rc3-release-identity
