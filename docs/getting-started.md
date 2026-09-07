@@ -7,6 +7,10 @@ The test install copies the same backend and LuCI files that potential future
 packages will contain, but it bypasses the package manager. It is intended for
 evaluation and hardware testing, not as the permanent distribution mechanism.
 
+The current public test release is `v0.1.0-rc3`. For ordinary testing, use that
+tag rather than an untagged `main` checkout so the code and reported release
+identity are reproducible.
+
 ## Before you start
 
 You need:
@@ -117,6 +121,12 @@ The page then lets you:
 
 The age shown beside the snapshot continues to increase, but that timer does
 not poll or refresh the device.
+
+Under **Device and data-source details**, the page also shows the public test
+release and LuCI package version (for RC3: `v0.1.0-rc3 · luci-app-l2-info
+0.1.0-r3`). That identity is shipped as a LuCI resource, so it remains visible
+even when `tools/install-test.sh` copied the checkout directly and no package
+manager record exists.
 
 ## Safe screenshots and demonstrations
 
@@ -278,7 +288,8 @@ For an ordinary problem, please include:
 - device model;
 - output of `ubus call system board` (review it before posting);
 - OpenWrt version/target/kernel;
-- exact `l2-info` revision or tag tested;
+- the **Test release** line shown under **Device and data-source details**, or
+  the exact revision/tag copied for a headless/backend-only test;
 - what you expected and what happened;
 - the statuses/reasons shown under **Device and data-source details**;
 - a screenshot if the problem is presentation-related.

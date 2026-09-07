@@ -16,6 +16,9 @@ The LuCI page is **Status → MAC & VLAN Lookup**.
 > successfully against the official OpenWrt SDK and current LuCI, but they have
 > not yet been submitted to the OpenWrt package feeds. The installation method
 > below is therefore a reversible test install from this repository.
+>
+> **Current public test release:** [`v0.1.0-rc3`](https://github.com/d4videvans/l2-info/releases/tag/v0.1.0-rc3).
+> Use that tag for ordinary testing; `main` may move ahead during development.
 
 ![MAC & VLAN Lookup in LuCI using synthetic demonstration data](docs/images/l2-info-synthetic-demo.png)
 
@@ -42,9 +45,10 @@ you ask for one.
 
 ## Quick test install
 
-Git is **not** required on the OpenWrt device. Download or clone the revision
-you want to test on another machine, copy the whole checkout to the router
-(for example as `/tmp/l2-info` with `scp` or WinSCP), then run:
+Git is **not** required on the OpenWrt device. For ordinary public testing,
+download or clone the current `v0.1.0-rc3` tag on another machine rather than
+an untagged `main` checkout, copy the whole checkout to the router (for example
+as `/tmp/l2-info` with `scp` or WinSCP), then run:
 
 ```sh
 cd /tmp/l2-info
@@ -168,8 +172,10 @@ Start with the document that matches what you are trying to do:
 ## Feedback
 
 For an ordinary bug or confusing result, include the OpenWrt version, device
-model/target, the exact revision or tag tested, and what the **Device and
-data-source details** panel says.
+model/target, and what the **Device and data-source details** panel says. On
+RC3 and later that panel includes the public test-release identity and LuCI
+package version; for a headless/backend-only test, include the exact revision or
+tag copied instead.
 
 For a new hardware target, `sh tools/collect-validation.sh` creates a much more
 useful diagnostic bundle. **That bundle and the LuCI “Download JSON” export can

@@ -1,6 +1,6 @@
 # Roadmap
 
-This roadmap records ideas that are useful enough to preserve but are **not part of the v0.1.0-rc1 scope**. Items here are intentionally weaker commitments than the current decision register: they should only become implementation work when there is evidence that the extra complexity is justified.
+This roadmap records ideas that are useful enough to preserve but are **not part of the current pre-upstream v0.1.0 release-candidate scope**. Items here are intentionally weaker commitments than the current decision register: they should only become implementation work when there is evidence that the extra complexity is justified.
 
 ## Opt-in active host/IP/name enrichment
 

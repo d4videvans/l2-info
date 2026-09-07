@@ -26,6 +26,7 @@ htdocs/luci-static/resources/view/l2-info/main.js:/www/luci-static/resources/vie
 htdocs/luci-static/resources/l2-info/hints.js:/www/luci-static/resources/l2-info/hints.js
 htdocs/luci-static/resources/l2-info/query.js:/www/luci-static/resources/l2-info/query.js
 htdocs/luci-static/resources/l2-info/diff.js:/www/luci-static/resources/l2-info/diff.js
+htdocs/luci-static/resources/l2-info/release.js:/www/luci-static/resources/l2-info/release.js
 root/usr/share/luci/menu.d/luci-app-l2-info.json:/usr/share/luci/menu.d/luci-app-l2-info.json
 root/usr/share/rpcd/acl.d/luci-app-l2-info.json:/usr/share/rpcd/acl.d/luci-app-l2-info.json
 "

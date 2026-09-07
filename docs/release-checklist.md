@@ -1,13 +1,14 @@
 # Forum test release checklist
 
-This is the repository-side checklist for the first public **pre-upstream test
-release** of `l2-info`. It is deliberately not forum-post copy.
+This is the repository-side reusable checklist for public **pre-upstream test
+releases** of `l2-info`. It is deliberately not forum-post copy.
 
-**RC1 status:** published. This file is retained as a reusable process checklist;
-unchecked boxes are procedure prompts, not a live claim that RC1 is unfinished.
-The published `v0.1.0-rc1` tag is treated as the immutable source identity for
-that release. Documentation-only corrections may land on `main` afterwards
-without moving the tag.
+**Current public test release:** `v0.1.0-rc3`. RC1 and RC2 remain immutable
+historical candidates; RC3 supersedes them for new testing. Unchecked boxes are
+procedure prompts, not a live claim that the current release is unfinished.
+Once published, each release tag is the immutable source identity for that
+candidate. Documentation-only corrections may land on `main` afterwards without
+moving an existing tag.
 
 The aim of this phase is to find portability, installation, performance and
 usability problems on hardware we do not own before preparing the separate
@@ -78,10 +79,10 @@ Only after the candidate CI and smoke test are green:
 - [ ] Confirm the `main` README presents the pre-upstream test install as the
   front-door path.
 - [ ] Confirm CI is green on the resulting `main` commit.
-- [ ] Tag that exact commit as the release candidate (`v0.1.0-rc1`).
+- [ ] Tag that exact commit with the chosen release-candidate tag.
 - [ ] Use the tag, not a moving branch name, in public tester instructions.
-- [ ] Use `docs/release-notes-v0.1.0-rc1.md` as the factual basis for any GitHub
-  release notes or announcement text.
+- [ ] Use the release-notes file named for that tag as the factual basis for any
+  GitHub release notes or announcement text (current: `docs/release-notes-v0.1.0-rc3.md`).
 
 Creating a GitHub release, posting to the OpenWrt forum or submitting anything
 upstream is an explicit external action and is not implied by this checklist.

@@ -14,6 +14,7 @@
 'require l2-info.hints as hints';
 'require l2-info.query as query';
 'require l2-info.diff as compare';
+'require l2-info.release as release';
 
 var callSnapshot = rpc.declare({
 	object: 'l2-info',
@@ -338,6 +339,7 @@ function renderScope(snap) {
 	var raw = (fdbScope.count != null) ? fdbScope.count : (snap.fdb || []).length;
 
 	var rows = [
+		[ _('Test release'), release.tag + ' · luci-app-l2-info ' + release.packageVersion ],
 		[ _('Device metadata'), (d.status == 'unavailable') ? _('unavailable — %s').format(d.reason || '') : _('available') ],
 		[ _('Model'), d.model || d.board || el('em', {}, _('unreported')) ],
 		[ _('Target'), d.target || el('em', {}, _('unreported')) ],
@@ -392,7 +394,7 @@ function fmtScopeDifference(d) {
 
 function fmtDiffVlan(vlans) {
 	var none = el('em', {}, _('none')), out = [];
-	(vlans || []).forEach(function(v, i) { if (i) out.push(', '); out.push(v == null ? el('em', {}, '?') : String(v)); });
+	(vlans || []).forEach(function(v, i) { if (i) out.push(', '); out.push(v == null ? el('em', {}, _('none')) : String(v)); });
 	return out.length ? out : none;
 }
 function fmtMoveVlan(m) {
