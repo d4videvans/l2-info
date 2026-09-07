@@ -23,6 +23,9 @@ jobs:
       - name: Apply RC3 consistency changes
         run: python3 .github/rc3-prep.py
 
+      - name: Install gettext
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gettext
+
       - name: Regenerate LuCI translation template
         run: |
           git clone --depth=1 https://github.com/openwrt/luci.git /tmp/luci
