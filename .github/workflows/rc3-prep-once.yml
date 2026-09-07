@@ -1,0 +1,319 @@
+---
+name: Prepare RC3 release identity once
+
+on:
+  push:
+    branches:
+      - fix/rc3-release-identity
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v6
+        with:
+          ref: fix/rc3-release-identity
+          fetch-depth: 0
+
+      - name: Apply RC3 consistency changes
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one occurrence, found {count}: {old!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          # One fact, one presentation: unresolved effective VLAN is "none" in
+          # both the ordinary result table and the Changes table.
+          replace_once(
+              'luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js',
+              "'require l2-info.diff as compare';\n",
+              "'require l2-info.diff as compare';\n'require l2-info.release as release';\n",
+          )
+          replace_once(
+              'luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js',
+              "out.push(v == null ? el('em', {}, '?') : String(v));",
+              "out.push(v == null ? el('em', {}, _('none')) : String(v));",
+          )
+          replace_once(
+              'luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js',
+              "\tvar rows = [\n\t\t[ _('Device metadata'),",
+              "\tvar rows = [\n\t\t[ _('Test release'), release.tag + ' · luci-app-l2-info ' + release.packageVersion ],\n\t\t[ _('Device metadata'),",
+          )
+
+          release_js = Path('luci-app-l2-info/htdocs/luci-static/resources/l2-info/release.js')
+          release_js.write_text("""/* SPDX-License-Identifier: Apache-2.0 */
+/* Public pre-upstream test identity. Keep packageVersion in sync with the
+ * LuCI Makefile; tests/run.sh enforces that relationship and the public docs. */
+
+'use strict';
+
+return {
+\ttag: 'v0.1.0-rc3',
+\tpackageVersion: '0.1.0-r3'
+};
+""")
+
+          replace_once(
+              'luci-app-l2-info/Makefile',
+              "LUCI_DEPENDS:=+luci-base +l2-info\n\nPKG_LICENSE:=Apache-2.0",
+              "LUCI_DEPENDS:=+luci-base +l2-info\n\n# Public test candidates can differ only in LuCI code. Use explicit package\n# metadata so an installed LuCI package identifies the candidate instead of\n# relying on luci.mk's source-revision-derived version.\nPKG_VERSION:=0.1.0\nPKG_RELEASE:=3\n\nPKG_LICENSE:=Apache-2.0",
+          )
+
+          replace_once(
+              'tools/install-dev-luci.sh',
+              "htdocs/luci-static/resources/l2-info/diff.js:/www/luci-static/resources/l2-info/diff.js\n",
+              "htdocs/luci-static/resources/l2-info/diff.js:/www/luci-static/resources/l2-info/diff.js\nhtdocs/luci-static/resources/l2-info/release.js:/www/luci-static/resources/l2-info/release.js\n",
+          )
+          replace_once(
+              'tools/uninstall-test.sh',
+              "/www/luci-static/resources/l2-info/diff.js\n",
+              "/www/luci-static/resources/l2-info/diff.js\n/www/luci-static/resources/l2-info/release.js\n",
+          )
+
+          # Keep the release identity mechanically tied to the LuCI package and
+          # to the current front-door/release documents.
+          marker = "\t# Demo rewrites share one authoritative precondition checker with install.\n"
+          check_block = r'''\t# Public test-release identity: copied-checkout installs bypass the package
+\t# manager, so the LuCI page carries the tag as well as the package version.
+\t# Keep that identity, package metadata, installer manifests and current docs
+\t# in sync so bug reports can name the build actually running.
+\tRELEASE_JS="$VIEW/htdocs/luci-static/resources/l2-info/release.js"
+\trelease_tag=$(sed -n "s/^[[:space:]]*tag: '\\([^']*\\)'.*/\\1/p" "$RELEASE_JS")
+\trelease_pkg=$(sed -n "s/^[[:space:]]*packageVersion: '\\([^']*\\)'.*/\\1/p" "$RELEASE_JS")
+\tpkg_version=$(sed -n 's/^PKG_VERSION:=//p' "$VIEW/Makefile")
+\tpkg_release=$(sed -n 's/^PKG_RELEASE:=//p' "$VIEW/Makefile")
+\texpected_pkg="${pkg_version}-r${pkg_release}"
+\trelease_status=1
+\tif [ -n "$release_tag" ] && [ "$release_pkg" = "$expected_pkg" ] && \\
+\t   grep -Fq "'require l2-info.release as release';" "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" && \\
+\t   grep -Fq "_('Test release')" "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" && \\
+\t   grep -Fq "$release_tag" "$ROOT/README.md" && \\
+\t   grep -Fq "$release_tag" "$ROOT/docs/release-checklist.md" && \\
+\t   [ -f "$ROOT/docs/release-notes-${release_tag}.md" ] && \\
+\t   grep -Fq "release.js:/www/luci-static/resources/l2-info/release.js" "$ROOT/tools/install-dev-luci.sh" && \\
+\t   grep -Fq "/www/luci-static/resources/l2-info/release.js" "$ROOT/tools/uninstall-test.sh"; then
+\t\trelease_status=0
+\tfi
+\tcheck "release: public test identity is internally consistent" "$release_status"
+
+'''
+          replace_once('tests/run.sh', marker, check_block + marker)
+
+          replace_once(
+              'CONVENTIONS.md',
+              "- committed fixture MACs are synthetic/permitted constants;\n- browser hint/export/query/diff tests when Node is available.",
+              "- committed fixture MACs are synthetic/permitted constants;\n- public test-release identity, LuCI package metadata and installer/docs references stay in sync;\n- browser hint/export/query/diff tests when Node is available.",
+          )
+
+          # README: name the current public release rather than pointing ordinary
+          # testers at moving HEAD.
+          replace_once(
+              'README.md',
+              "> not yet been submitted to the OpenWrt package feeds. The installation method\n> below is therefore a reversible test install from this repository.\n",
+              "> not yet been submitted to the OpenWrt package feeds. The installation method\n> below is therefore a reversible test install from this repository.\n>\n> **Current public test release:** [`v0.1.0-rc3`](https://github.com/d4videvans/l2-info/releases/tag/v0.1.0-rc3).\n> Use that tag for ordinary testing; `main` may move ahead during development.\n",
+          )
+          replace_once(
+              'README.md',
+              "Git is **not** required on the OpenWrt device. Download or clone the revision\nyou want to test on another machine, copy the whole checkout to the router\n(for example as `/tmp/l2-info` with `scp` or WinSCP), then run:\n",
+              "Git is **not** required on the OpenWrt device. For ordinary public testing,\ndownload or clone the current `v0.1.0-rc3` tag on another machine rather than\nan untagged `main` checkout, copy the whole checkout to the router (for example\nas `/tmp/l2-info` with `scp` or WinSCP), then run:\n",
+          )
+          replace_once(
+              'README.md',
+              "For an ordinary bug or confusing result, include the OpenWrt version, device\nmodel/target, the exact revision or tag tested, and what the **Device and\ndata-source details** panel says.\n",
+              "For an ordinary bug or confusing result, include the OpenWrt version, device\nmodel/target, and what the **Device and data-source details** panel says. On\nRC3 and later that panel includes the public test-release identity and LuCI\npackage version; for a headless/backend-only test, include the exact revision or\ntag copied instead.\n",
+          )
+
+          # Getting started owns the practical install/reporting contract.
+          replace_once(
+              'docs/getting-started.md',
+              "The test install copies the same backend and LuCI files that potential future\npackages will contain, but it bypasses the package manager. It is intended for\nevaluation and hardware testing, not as the permanent distribution mechanism.\n",
+              "The test install copies the same backend and LuCI files that potential future\npackages will contain, but it bypasses the package manager. It is intended for\nevaluation and hardware testing, not as the permanent distribution mechanism.\n\nThe current public test release is `v0.1.0-rc3`. For ordinary testing, use that\ntag rather than an untagged `main` checkout so the code and reported release\nidentity are reproducible.\n",
+          )
+          replace_once(
+              'docs/getting-started.md',
+              "The age shown beside the snapshot continues to increase, but that timer does\nnot poll or refresh the device.\n",
+              "The age shown beside the snapshot continues to increase, but that timer does\nnot poll or refresh the device.\n\nUnder **Device and data-source details**, the page also shows the public test\nrelease and LuCI package version (for RC3: `v0.1.0-rc3 · luci-app-l2-info\n0.1.0-r3`). That identity is shipped as a LuCI resource, so it remains visible\neven when `tools/install-test.sh` copied the checkout directly and no package\nmanager record exists.\n",
+          )
+          replace_once(
+              'docs/getting-started.md',
+              "- exact `l2-info` revision or tag tested;\n",
+              "- the **Test release** line shown under **Device and data-source details**, or\n  the exact revision/tag copied for a headless/backend-only test;\n",
+          )
+
+          # Reusable release checklist: current status is explicit, procedure is
+          # no longer hard-coded to RC1.
+          old_top = """# Forum test release checklist
+
+This is the repository-side checklist for the first public **pre-upstream test
+release** of `l2-info`. It is deliberately not forum-post copy.
+
+**RC1 status:** published. This file is retained as a reusable process checklist;
+unchecked boxes are procedure prompts, not a live claim that RC1 is unfinished.
+The published `v0.1.0-rc1` tag is treated as the immutable source identity for
+that release. Documentation-only corrections may land on `main` afterwards
+without moving the tag.
+"""
+          new_top = """# Forum test release checklist
+
+This is the repository-side reusable checklist for public **pre-upstream test
+releases** of `l2-info`. It is deliberately not forum-post copy.
+
+**Current public test release:** `v0.1.0-rc3`. RC1 and RC2 remain immutable
+historical candidates; RC3 supersedes them for new testing. Unchecked boxes are
+procedure prompts, not a live claim that the current release is unfinished.
+Once published, each release tag is the immutable source identity for that
+candidate. Documentation-only corrections may land on `main` afterwards without
+moving an existing tag.
+"""
+          replace_once('docs/release-checklist.md', old_top, new_top)
+          replace_once(
+              'docs/release-checklist.md',
+              "- [ ] Tag that exact commit as the release candidate (`v0.1.0-rc1`).\n",
+              "- [ ] Tag that exact commit with the chosen release-candidate tag.\n",
+          )
+          replace_once(
+              'docs/release-checklist.md',
+              "- [ ] Use `docs/release-notes-v0.1.0-rc1.md` as the factual basis for any GitHub\n  release notes or announcement text.\n",
+              "- [ ] Use the release-notes file named for that tag as the factual basis for any\n  GitHub release notes or announcement text (current: `docs/release-notes-v0.1.0-rc3.md`).\n",
+          )
+
+          replace_once(
+              'docs/roadmap.md',
+              "This roadmap records ideas that are useful enough to preserve but are **not part of the v0.1.0-rc1 scope**.",
+              "This roadmap records ideas that are useful enough to preserve but are **not part of the current pre-upstream v0.1.0 release-candidate scope**.",
+          )
+
+          Path('docs/release-notes-v0.1.0-rc3.md').write_text("""# l2-info v0.1.0-rc3 — release notes
+
+**Status:** third public pre-upstream test release.
+
+RC3 supersedes RC2 for new testing. It keeps RC2's multi-VLAN comparison fix
+and makes the public candidate identifiable and internally consistent on the
+device, including when the copied-checkout installer bypasses the package
+manager.
+
+## Why RC3 exists
+
+A follow-up consistency review found three release/testing problems rather than
+a new backend-data defect:
+
+- an unresolved effective VLAN was rendered as *none* in the ordinary results
+  table but as `?` in the Changes table, even though `?` already meant an
+  unreported port elsewhere on the same page;
+- RC2 changed only `luci-app-l2-info`, but that package still used normal
+  `luci.mk` revision-derived versioning and a copied-checkout install created no
+  package-manager record, so RC1 and RC2 were not self-identifying on-device;
+- the reusable release checklist and README still pointed readers toward RC1 or
+  an unspecified revision rather than the current public candidate.
+
+RC3 closes those gaps without changing snapshot acquisition or the backend data
+contract.
+
+## What changed
+
+### Consistent unresolved-VLAN presentation
+
+A null effective VLAN is now rendered as translated italic *none* in both the
+ordinary results table and the Changes table. Mixed move evidence therefore
+reads, for example, `5, none` rather than reusing `?` for a second meaning.
+
+### On-device release identity
+
+`luci-app-l2-info` now declares explicit package metadata:
+
+- `PKG_VERSION:=0.1.0`
+- `PKG_RELEASE:=3`
+
+A conventionally built package therefore identifies itself as `0.1.0-r3`
+instead of relying on `luci.mk`'s source-revision-derived version.
+
+The LuCI app also ships a small release-identity resource. **Device and
+ data-source details** shows:
+
+`v0.1.0-rc3 · luci-app-l2-info 0.1.0-r3`
+
+That remains visible for the documented copied-checkout test install, where
+`apk`/`opkg` has no application-package record to report.
+
+A mechanical test keeps the public tag, LuCI package version, installed release
+resource, installer/uninstaller manifests, README and current release notes in
+sync.
+
+### Release documentation
+
+The README now points ordinary testers directly at `v0.1.0-rc3` rather than a
+moving `main` checkout. The practical getting-started guide explains where to
+find the on-device test identity. The forum-test checklist is genuinely
+reusable while still naming RC3 as the current public candidate. The roadmap no
+longer defines its scope by the historical RC1 tag.
+
+## What did not change
+
+RC3 does **not** change:
+
+- `l2-info.snapshot` format/version 1;
+- backend package version (`l2-info` remains `0.1.0-r1` because its contents are
+  unchanged by RC3);
+- rtnetlink acquisition or reader behaviour;
+- raw FDB identity, effective-placement identity or move inference;
+- port aggregate semantics;
+- install/uninstall behaviour apart from shipping/removing the new LuCI release
+  resource;
+- the read-only/no-polling model.
+
+The existing hardware validation therefore remains relevant. RC3's functional
+change is confined to LuCI presentation and release identification.
+
+## Installation
+
+For ordinary testing, use the tagged RC3 checkout:
+
+```sh
+cd /tmp/l2-info
+sh tools/install-test.sh
+```
+
+Then refresh LuCI and open **Status → MAC & VLAN Lookup**. If an existing LuCI
+login does not reflect newly installed menu files, log out and back in.
+
+For full installation, uninstall, privacy and troubleshooting guidance, see
+`docs/getting-started.md`.
+
+## Feedback
+
+Please report new testing against `v0.1.0-rc3`. Include the OpenWrt version,
+device model/target, snapshot duration, relevant **Device and data-source
+details**, and what looked wrong or confusing. The **Test release** row should
+make the exact LuCI candidate visible without relying on memory of which archive
+was copied.
+""")
+          PY
+
+      - name: Regenerate LuCI translation template
+        run: |
+          git clone --depth=1 https://github.com/openwrt/luci.git /tmp/luci
+          rm -rf /tmp/luci/applications/luci-app-l2-info
+          cp -a luci-app-l2-info /tmp/luci/applications/luci-app-l2-info
+          /tmp/luci/build/i18n-scan.pl /tmp/luci/applications/luci-app-l2-info \
+            > luci-app-l2-info/po/templates/l2-info.pot
+
+      - name: Commit prepared candidate
+        run: |
+          rm -f .github/workflows/rc3-prep-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Prepare v0.1.0-rc3 release identity"
+          git push origin HEAD:fix/rc3-release-identity
