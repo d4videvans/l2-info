@@ -29,13 +29,13 @@ A null effective VLAN is now rendered as translated italic *none* in both the or
 
 A conventionally built package therefore identifies itself as `0.1.0-r3` instead of relying on `luci.mk`'s source-revision-derived version.
 
-The LuCI app also ships a small release-identity resource. **Device and data-source details** shows:
+The LuCI app also ships a small release-identity resource. **Device and data-source details** shows the intended public source-tree identity:
 
-`v0.1.0-rc3 · luci-app-l2-info 0.1.0-r3`
+`v0.1.0-rc3`
 
-That remains visible for the documented copied-checkout test install, where `apk`/`opkg` has no application-package record to report.
+That remains visible for the documented copied-checkout test install without pretending that an application package is installed. For a real package installation, `apk`/`opkg` remains authoritative for installed package versions.
 
-A mechanical test keeps the public tag, LuCI package version, installed release resource, installer/uninstaller manifests, README and current release notes in sync.
+A mechanical test keeps the public tag, LuCI package metadata, installed release resource, installer/uninstaller manifests and current release documentation in sync.
 
 ### Release documentation
 
@@ -70,4 +70,4 @@ For full installation, uninstall, privacy and troubleshooting guidance, see `doc
 
 ## Feedback
 
-Please report new testing against `v0.1.0-rc3`. Include the OpenWrt version, device model/target, snapshot duration, relevant **Device and data-source details**, and what looked wrong or confusing. The **Test release** row should make the exact LuCI candidate visible without relying on memory of which archive was copied.
+Please report new testing against `v0.1.0-rc3`. Include the OpenWrt version, device model/target, exact revision/tag copied, snapshot duration, relevant **Device and data-source details**, and what looked wrong or confusing. The **Test release** row corroborates the intended public candidate but does not replace the revision/tag, because local edits or an untagged checkout can retain the build-time label.

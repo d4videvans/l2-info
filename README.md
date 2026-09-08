@@ -172,10 +172,11 @@ Start with the document that matches what you are trying to do:
 ## Feedback
 
 For an ordinary bug or confusing result, include the OpenWrt version, device
-model/target, and what the **Device and data-source details** panel says. On
-RC3 and later that panel includes the public test-release identity and LuCI
-package version; for a headless/backend-only test, include the exact revision or
-tag copied instead.
+model/target, the exact revision or tag copied, and what the **Device and
+data-source details** panel says. On RC3 and later the **Test release** line
+corroborates the intended public candidate; it does not replace the exact
+revision/tag because an edited or untagged checkout can still carry that
+build-time label.
 
 For a new hardware target, `sh tools/collect-validation.sh` creates a much more
 useful diagnostic bundle. **That bundle and the LuCI “Download JSON” export can

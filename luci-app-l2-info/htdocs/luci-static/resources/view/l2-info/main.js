@@ -339,7 +339,7 @@ function renderScope(snap) {
 	var raw = (fdbScope.count != null) ? fdbScope.count : (snap.fdb || []).length;
 
 	var rows = [
-		[ _('Test release'), release.tag + ' · luci-app-l2-info ' + release.packageVersion ],
+		[ _('Test release'), release.tag ],
 		[ _('Device metadata'), (d.status == 'unavailable') ? _('unavailable — %s').format(d.reason || '') : _('available') ],
 		[ _('Model'), d.model || d.board || el('em', {}, _('unreported')) ],
 		[ _('Target'), d.target || el('em', {}, _('unreported')) ],
@@ -393,9 +393,9 @@ function fmtScopeDifference(d) {
 }
 
 function fmtDiffVlan(vlans) {
-	var none = el('em', {}, _('none')), out = [];
+	var out = [];
 	(vlans || []).forEach(function(v, i) { if (i) out.push(', '); out.push(v == null ? el('em', {}, _('none')) : String(v)); });
-	return out.length ? out : none;
+	return out.length ? out : el('em', {}, _('none'));
 }
 function fmtMoveVlan(m) {
 	if (JSON.stringify(m.fromVlans || []) == JSON.stringify(m.toVlans || []))

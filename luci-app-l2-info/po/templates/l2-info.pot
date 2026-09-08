@@ -474,8 +474,8 @@ msgid "moved"
 msgstr ""
 
 #: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:113
-#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:396
 #: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:397
+#: applications/luci-app-l2-info/htdocs/luci-static/resources/view/l2-info/main.js:398
 msgid "none"
 msgstr ""
 
