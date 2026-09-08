@@ -19,7 +19,7 @@ jobs:
           ref: fix/rc3-release-identity
           fetch-depth: 0
       - name: Apply feedback
-        run: python3 .github/rc3-feedback.py
+        run: python3 .github/rc3-feedback-wrapper.py
       - name: Regenerate LuCI translation template
         run: |
           sudo apt-get update -qq
@@ -31,7 +31,7 @@ jobs:
           rm -rf luci-scan
       - name: Commit and self-remove
         run: |
-          rm .github/rc3-feedback.py .github/workflows/rc3-feedback-fix-once.yml
+          rm .github/rc3-feedback.py .github/rc3-feedback-wrapper.py .github/workflows/rc3-feedback-fix-once.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
