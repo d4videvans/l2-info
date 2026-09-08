@@ -90,6 +90,8 @@ including:
 - read-only ACL/no browser persistence/no UCI schema;
 - every shipped reader has source fixtures;
 - committed fixture MACs are synthetic/permitted constants;
+- public test-release identity, LuCI package metadata and installer/docs
+  references stay in sync;
 - browser hint/export/query/diff tests when Node is available.
 
 CI makes Node tests mandatory, validates all fixture JSON, runs current LuCI

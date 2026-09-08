@@ -163,6 +163,41 @@ if [ -z "$FILTER" ] || [ "$FILTER" = "checks" ]; then
 		| grep -Ec "$I18N_BOUNDARY_RE")
 	check "i18n: boundary-whitespace guard catches leading and trailing mutations" "$([ "$probe" -eq 4 ] && echo 0 || echo 1)"
 
+	# Public test-release identity: copied-checkout installs bypass the package
+	# manager, so the LuCI page carries the intended public tag. Keep that tag,
+	# package metadata, installer manifests and current docs in sync. The label is
+	# corroborating evidence only: reports still include the exact revision/tag copied.
+	RELEASE_JS="$VIEW/htdocs/luci-static/resources/l2-info/release.js"
+	release_tag=$(sed -n "s/^[[:space:]]*tag: '\([^']*\)'.*/\1/p" "$RELEASE_JS")
+	pkg_version=$(sed -n 's/^PKG_VERSION:=//p' "$VIEW/Makefile")
+	pkg_release=$(sed -n 's/^PKG_RELEASE:=//p' "$VIEW/Makefile")
+	release_status=0
+	release_problem() {
+		echo "    release identity: $1"
+		release_status=1
+	}
+	[ -n "$release_tag" ] || release_problem "release.js has no tag"
+	[ -n "$pkg_version" ] || release_problem "LuCI Makefile has no PKG_VERSION"
+	[ -n "$pkg_release" ] || release_problem "LuCI Makefile has no PKG_RELEASE"
+	case "$release_tag" in
+		"v${pkg_version}"-rc*) : ;;
+		*) release_problem "tag '$release_tag' does not match PKG_VERSION '$pkg_version'" ;;
+	esac
+	grep -Fq "'require l2-info.release as release';" "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" || \
+		release_problem "main.js does not import release.js"
+	grep -Fq "_('Test release')" "$VIEW/htdocs/luci-static/resources/view/l2-info/main.js" || \
+		release_problem "main.js does not render Test release"
+	for doc in "$ROOT/README.md" "$ROOT/docs/getting-started.md" "$ROOT/docs/release-checklist.md"; do
+		grep -Fq "$release_tag" "$doc" || release_problem "${doc#$ROOT/} does not name $release_tag"
+	done
+	[ -f "$ROOT/docs/release-notes-${release_tag}.md" ] || \
+		release_problem "docs/release-notes-${release_tag}.md is missing"
+	grep -Fq "release.js:/www/luci-static/resources/l2-info/release.js" "$ROOT/tools/install-dev-luci.sh" || \
+		release_problem "install-dev-luci.sh does not install release.js"
+	grep -Fq "/www/luci-static/resources/l2-info/release.js" "$ROOT/tools/uninstall-test.sh" || \
+		release_problem "uninstall-test.sh does not remove release.js"
+	check "release: public test identity is internally consistent" "$release_status"
+
 	# Demo rewrites share one authoritative precondition checker with install.
 	if sh "$ROOT/tools/check-screenshot-demo.sh" \
 		"$VIEW/htdocs/luci-static/resources/view/l2-info/main.js"; then
